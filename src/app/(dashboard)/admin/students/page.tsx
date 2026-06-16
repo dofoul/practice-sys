@@ -2,24 +2,32 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  App, Card, Table, Typography, Space, Button, Input, Select,
-  Tag, Modal, Form, Tooltip, Alert, Empty, Badge,
+  App, Card, Table, Typography, Space, Button, Input, InputNumber, Select,
+  Tag, Modal, Form, Tooltip, Alert, Empty, Badge, Divider,
 } from "antd";
-import { PlusOutlined, EditOutlined, SearchOutlined, TeamOutlined } from "@ant-design/icons";
+import { PlusOutlined, EditOutlined, SearchOutlined, TeamOutlined, WarningOutlined } from "@ant-design/icons";
 
 const { Title, Text } = Typography;
 
+interface Institution { id: number; name: string }
+interface Specialty { id: number; name: string; institution: Institution }
 interface Group { id: number; name: string; specialty: { name: string } }
-interface Student {
-  id: number;
-  recordBookNo?: string;
-  user: { id: number; fullName: string; email: string; isActive: boolean };
-  group: { id: number; name: string; specialty: { name: string } };
+
+interface StudentUser {
+  id: number;         // userId
+  fullName: string;
+  email: string;
+  isActive: boolean;
+  student: {
+    id: number;
+    recordBookNo?: string | null;
+    group: { id: number; name: string; specialty: { name: string } } | null;
+  } | null;
 }
 
 export default function AdminStudentsPage() {
   const { message } = App.useApp();
-  const [students, setStudents] = useState<Student[]>([]);
+  const [students, setStudents] = useState<StudentUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,9 +35,22 @@ export default function AdminStudentsPage() {
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState<number | undefined>();
   const [groups, setGroups] = useState<Group[]>([]);
-  const [modal, setModal] = useState<{ open: boolean; student?: Student }>({ open: false });
+  const [modal, setModal] = useState<{ open: boolean; student?: StudentUser }>({ open: false });
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
+
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+
+  // inline group creation
+  const [newGroupOpen, setNewGroupOpen] = useState(false);
+  const [newGroupLoading, setNewGroupLoading] = useState(false);
+  const [newGroupForm] = Form.useForm();
+
+  // inline specialty creation (inside group modal)
+  const [newSpOpen, setNewSpOpen] = useState(false);
+  const [newSpLoading, setNewSpLoading] = useState(false);
+  const [newSpForm] = Form.useForm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,28 +77,79 @@ export default function AdminStudentsPage() {
 
   useEffect(() => {
     fetch("/api/groups").then((r) => r.json()).then((d) => setGroups(Array.isArray(d) ? d : (d.items || [])));
+    fetch("/api/admin/specialties").then((r) => r.json()).then((d) => setSpecialties(Array.isArray(d) ? d : (d.items || [])));
+    fetch("/api/admin/institutions").then((r) => r.json()).then((d) => {
+      setInstitutions(Array.isArray(d) ? d : (d.items || []));
+    });
   }, []);
+
+  async function handleCreateSpecialty(values: { name: string; code?: string; institutionId: number }) {
+    setNewSpLoading(true);
+    try {
+      const res = await fetch("/api/admin/specialties", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Ошибка");
+      const inst = institutions.find((i) => i.id === values.institutionId);
+      setSpecialties((prev) => [...prev, { ...data, institution: inst ?? { id: values.institutionId, name: "" } }]);
+      newGroupForm.setFieldValue("specialtyId", data.id);
+      message.success("Специальность добавлена");
+      setNewSpOpen(false);
+      newSpForm.resetFields();
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setNewSpLoading(false);
+    }
+  }
+
+  async function handleCreateGroup(values: { name: string; specialtyId: number; course?: number; enrollmentYear?: number }) {
+    setNewGroupLoading(true);
+    try {
+      const res = await fetch("/api/admin/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Ошибка");
+      const sp = specialties.find((s) => s.id === values.specialtyId);
+      const newGroup: Group = { id: data.id, name: data.name, specialty: { name: sp?.name ?? "" } };
+      setGroups((prev) => [...prev, newGroup].sort((a, b) => a.name.localeCompare(b.name)));
+      form.setFieldValue("groupId", data.id);
+      message.success(`Группа "${data.name}" создана`);
+      setNewGroupOpen(false);
+      newGroupForm.resetFields();
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setNewGroupLoading(false);
+    }
+  }
 
   function openCreate() {
     form.resetFields();
     setModal({ open: true });
   }
 
-  function openEdit(student: Student) {
+  function openEdit(s: StudentUser) {
     form.setFieldsValue({
-      fullName: student.user.fullName,
-      email: student.user.email,
-      groupId: student.group.id,
-      recordBookNo: student.recordBookNo,
+      fullName: s.fullName,
+      email: s.email,
+      groupId: s.student?.group?.id,
+      recordBookNo: s.student?.recordBookNo,
     });
-    setModal({ open: true, student });
+    setModal({ open: true, student: s });
   }
 
   async function handleSave(values: {
     fullName: string;
     email: string;
     password?: string;
-    groupId: number;
+    groupId?: number;
     recordBookNo?: string;
   }) {
     setSaving(true);
@@ -115,38 +187,48 @@ export default function AdminStudentsPage() {
     {
       title: "ФИО / Email",
       key: "name",
-      render: (s: Student) => (
+      render: (s: StudentUser) => (
         <div>
-          <Text strong style={{ fontSize: 13 }}>{s.user.fullName}</Text>
+          <Text strong style={{ fontSize: 13 }}>{s.fullName}</Text>
           <br />
-          <Text type="secondary" style={{ fontSize: 12 }}>{s.user.email}</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>{s.email}</Text>
         </div>
       ),
     },
     {
       title: "Группа",
       key: "group",
-      render: (s: Student) => (
-        <div>
-          <Tag color="blue" icon={<TeamOutlined />}>{s.group.name}</Tag>
-          <Text type="secondary" style={{ fontSize: 12, display: "block", marginTop: 2 }}>
-            {s.group.specialty.name}
-          </Text>
-        </div>
-      ),
+      render: (s: StudentUser) => {
+        if (!s.student?.group) {
+          return (
+            <Tooltip title="Группа не назначена — нажмите редактировать">
+              <Tag icon={<WarningOutlined />} color="warning">Не назначена</Tag>
+            </Tooltip>
+          );
+        }
+        return (
+          <div>
+            <Tag color="blue" icon={<TeamOutlined />}>{s.student.group.name}</Tag>
+            <Text type="secondary" style={{ fontSize: 12, display: "block", marginTop: 2 }}>
+              {s.student.group.specialty.name}
+            </Text>
+          </div>
+        );
+      },
     },
     {
       title: "Зачётная книжка",
       key: "recordBook",
-      render: (s: Student) => s.recordBookNo ? <Tag>{s.recordBookNo}</Tag> : <Text type="secondary">—</Text>,
+      render: (s: StudentUser) =>
+        s.student?.recordBookNo ? <Tag>{s.student.recordBookNo}</Tag> : <Text type="secondary">—</Text>,
     },
     {
       title: "Статус",
       key: "status",
-      render: (s: Student) => (
+      render: (s: StudentUser) => (
         <Badge
-          status={s.user.isActive ? "success" : "error"}
-          text={s.user.isActive ? "Активен" : "Заблокирован"}
+          status={s.isActive ? "success" : "error"}
+          text={s.isActive ? "Активен" : "Заблокирован"}
         />
       ),
     },
@@ -154,7 +236,7 @@ export default function AdminStudentsPage() {
       title: "",
       key: "action",
       width: 60,
-      render: (s: Student) => (
+      render: (s: StudentUser) => (
         <Tooltip title="Редактировать">
           <Button type="text" icon={<EditOutlined />} onClick={() => openEdit(s)} />
         </Tooltip>
@@ -167,7 +249,7 @@ export default function AdminStudentsPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
           <Title level={4} style={{ margin: 0 }}>Студенты</Title>
-          <Text type="secondary" style={{ fontSize: 13 }}>Управление студентами и группами — {total}</Text>
+          <Text type="secondary" style={{ fontSize: 13 }}>Все пользователи с ролью «Студент» — {total}</Text>
         </div>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
           Добавить студента
@@ -213,12 +295,14 @@ export default function AdminStudentsPage() {
         />
       </Card>
 
+      {/* Создание / редактирование студента */}
       <Modal
         title={modal.student ? "Редактировать студента" : "Добавить студента"}
         open={modal.open}
         onCancel={() => setModal({ open: false })}
         footer={null}
         width={520}
+        destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={handleSave} style={{ marginTop: 16 }}>
           <Form.Item label="ФИО" name="fullName" rules={[{ required: true, message: "Введите ФИО" }]}>
@@ -243,15 +327,27 @@ export default function AdminStudentsPage() {
               <Input.Password placeholder="Минимум 8 символов" />
             </Form.Item>
           )}
-          <Form.Item label="Группа" name="groupId" rules={[{ required: true, message: "Выберите группу" }]}>
+          <Form.Item label="Группа" name="groupId">
             <Select
-              placeholder="Выберите группу"
+              placeholder="Выберите или создайте группу"
               showSearch
               optionFilterProp="label"
+              allowClear
               options={groups.map((g) => ({
                 label: `${g.name} — ${g.specialty.name}`,
                 value: g.id,
               }))}
+              dropdownRender={(menu) => (
+                <>
+                  {menu}
+                  <Divider style={{ margin: "4px 0" }} />
+                  <div style={{ padding: "4px 8px 8px" }}>
+                    <Button type="link" icon={<PlusOutlined />} style={{ padding: 0 }} onClick={() => setNewGroupOpen(true)}>
+                      Создать новую группу
+                    </Button>
+                  </div>
+                </>
+              )}
             />
           </Form.Item>
           <Form.Item label="Номер зачётной книжки" name="recordBookNo">
@@ -261,6 +357,86 @@ export default function AdminStudentsPage() {
             <Space>
               <Button onClick={() => setModal({ open: false })}>Отмена</Button>
               <Button type="primary" htmlType="submit" loading={saving}>Сохранить</Button>
+            </Space>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Создание группы */}
+      <Modal
+        title="Новая группа"
+        open={newGroupOpen}
+        onCancel={() => { setNewGroupOpen(false); newGroupForm.resetFields(); }}
+        footer={null}
+        destroyOnClose
+        zIndex={1100}
+      >
+        <Form form={newGroupForm} layout="vertical" onFinish={handleCreateGroup} style={{ marginTop: 16 }}>
+          <Form.Item label="Название группы" name="name" rules={[{ required: true, message: "Введите название" }]}>
+            <Input placeholder="СИС-21" />
+          </Form.Item>
+          <Form.Item label="Специальность" name="specialtyId" rules={[{ required: true, message: "Выберите специальность" }]}>
+            <Select
+              options={specialties.map((s) => ({ label: `${s.name} — ${s.institution.name}`, value: s.id }))}
+              showSearch
+              filterOption={(input, opt) => String(opt?.label ?? "").toLowerCase().includes(input.toLowerCase())}
+              placeholder="Выберите или создайте специальность"
+              dropdownRender={(menu) => (
+                <>
+                  {menu}
+                  <Divider style={{ margin: "4px 0" }} />
+                  <div style={{ padding: "4px 8px 8px" }}>
+                    <Button type="link" icon={<PlusOutlined />} style={{ padding: 0 }} onClick={() => setNewSpOpen(true)}>
+                      Создать новую специальность
+                    </Button>
+                  </div>
+                </>
+              )}
+            />
+          </Form.Item>
+          <Form.Item label="Курс" name="course">
+            <InputNumber min={1} max={6} style={{ width: "100%" }} placeholder="3" />
+          </Form.Item>
+          <Form.Item label="Год набора" name="enrollmentYear">
+            <InputNumber min={2000} max={2100} style={{ width: "100%" }} placeholder="2022" />
+          </Form.Item>
+          <div style={{ textAlign: "right" }}>
+            <Space>
+              <Button onClick={() => { setNewGroupOpen(false); newGroupForm.resetFields(); }}>Отмена</Button>
+              <Button type="primary" htmlType="submit" loading={newGroupLoading}>Создать</Button>
+            </Space>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Создание специальности */}
+      <Modal
+        title="Новая специальность"
+        open={newSpOpen}
+        onCancel={() => { setNewSpOpen(false); newSpForm.resetFields(); }}
+        footer={null}
+        destroyOnClose
+        zIndex={1200}
+      >
+        <Form form={newSpForm} layout="vertical" onFinish={handleCreateSpecialty} style={{ marginTop: 16 }}>
+          <Form.Item label="Учебное заведение" name="institutionId" rules={[{ required: true, message: "Выберите заведение" }]}>
+            <Select
+              options={institutions.map((i) => ({ label: i.name, value: i.id }))}
+              showSearch
+              filterOption={(input, opt) => String(opt?.label ?? "").toLowerCase().includes(input.toLowerCase())}
+              placeholder="Выберите учебное заведение"
+            />
+          </Form.Item>
+          <Form.Item label="Название специальности" name="name" rules={[{ required: true, message: "Введите название" }]}>
+            <Input placeholder="Системное администрирование" />
+          </Form.Item>
+          <Form.Item label="Код специальности" name="code">
+            <Input placeholder="09.02.06" />
+          </Form.Item>
+          <div style={{ textAlign: "right" }}>
+            <Space>
+              <Button onClick={() => { setNewSpOpen(false); newSpForm.resetFields(); }}>Отмена</Button>
+              <Button type="primary" htmlType="submit" loading={newSpLoading}>Добавить</Button>
             </Space>
           </div>
         </Form>

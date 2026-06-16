@@ -274,8 +274,9 @@ export default function LandingPage() {
             <div className="marquee-track">
               {duplicated.map((offer, i) => {
                 const left = offer.slotsTotal - offer.slotsTaken;
+                const href = session?.user ? `/catalog/${offer.id}` : `/login?callbackUrl=/catalog/${offer.id}`;
                 return (
-                  <Link key={`${offer.id}-${i}`} href={`/catalog/${offer.id}`}>
+                  <Link key={`${offer.id}-${i}`} href={href}>
                     <div
                       style={{
                         minWidth: 260,

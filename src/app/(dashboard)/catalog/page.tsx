@@ -9,6 +9,7 @@ import {
   Space,
   Button,
   Input,
+  InputNumber,
   Select,
   Tag,
   Empty,
@@ -17,6 +18,7 @@ import {
   Badge,
   Modal,
   Form,
+  Divider,
   App,
 } from "antd";
 import {
@@ -68,6 +70,14 @@ export default function CatalogPage() {
   const [newCompanyModal, setNewCompanyModal] = useState(false);
   const [newCompanyForm] = Form.useForm();
   const [newCompanyLoading, setNewCompanyLoading] = useState(false);
+
+  const [newTypeModal, setNewTypeModal] = useState(false);
+  const [newTypeForm] = Form.useForm();
+  const [newTypeLoading, setNewTypeLoading] = useState(false);
+
+  const [newPeriodModal, setNewPeriodModal] = useState(false);
+  const [newPeriodForm] = Form.useForm();
+  const [newPeriodLoading, setNewPeriodLoading] = useState(false);
 
   const role = session?.user?.role;
   const pageSize = 12;
@@ -176,6 +186,50 @@ export default function CatalogPage() {
       message.error(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setNewCompanyLoading(false);
+    }
+  }
+
+  async function handleCreatePracticeType(values: { code: string; name: string }) {
+    setNewTypeLoading(true);
+    try {
+      const res = await fetch("/api/admin/dictionaries/practice-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      const created = await res.json();
+      setPracticeTypes((prev) => [...prev, { id: created.id, name: created.name }]);
+      form.setFieldValue("practiceTypeId", created.id);
+      message.success(`Тип "${created.name}" добавлен`);
+      setNewTypeModal(false);
+      newTypeForm.resetFields();
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setNewTypeLoading(false);
+    }
+  }
+
+  async function handleCreatePeriod(values: { name: string; dateStart: string; dateEnd: string }) {
+    setNewPeriodLoading(true);
+    try {
+      const res = await fetch("/api/admin/periods", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      const created = await res.json();
+      setPeriods((prev) => [...prev, { id: created.id, name: created.name }]);
+      form.setFieldValue("periodId", created.id);
+      message.success(`Период "${created.name}" добавлен`);
+      setNewPeriodModal(false);
+      newPeriodForm.resetFields();
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setNewPeriodLoading(false);
     }
   }
 
@@ -360,10 +414,38 @@ export default function CatalogPage() {
             />
           </Form.Item>
           <Form.Item label="Тип практики" name="practiceTypeId" rules={[{ required: true, message: "Выберите тип" }]}>
-            <Select options={practiceTypes.map((t) => ({ label: t.name, value: t.id }))} />
+            <Select
+              options={practiceTypes.map((t) => ({ label: t.name, value: t.id }))}
+              placeholder="Выберите или создайте новый"
+              dropdownRender={(menu) => (
+                <>
+                  {menu}
+                  <Divider style={{ margin: "4px 0" }} />
+                  <div style={{ padding: "4px 8px 8px" }}>
+                    <Button type="link" icon={<PlusOutlined />} style={{ padding: 0 }} onClick={() => setNewTypeModal(true)}>
+                      Создать новый тип практики
+                    </Button>
+                  </div>
+                </>
+              )}
+            />
           </Form.Item>
           <Form.Item label="Период" name="periodId" rules={[{ required: true, message: "Выберите период" }]}>
-            <Select options={periods.map((p) => ({ label: p.name, value: p.id }))} />
+            <Select
+              options={periods.map((p) => ({ label: p.name, value: p.id }))}
+              placeholder="Выберите или создайте новый"
+              dropdownRender={(menu) => (
+                <>
+                  {menu}
+                  <Divider style={{ margin: "4px 0" }} />
+                  <div style={{ padding: "4px 8px 8px" }}>
+                    <Button type="link" icon={<PlusOutlined />} style={{ padding: 0 }} onClick={() => setNewPeriodModal(true)}>
+                      Создать новый период
+                    </Button>
+                  </div>
+                </>
+              )}
+            />
           </Form.Item>
           <Form.Item label="Заголовок" name="title" rules={[{ required: true, message: "Введите заголовок" }]}>
             <Input placeholder="Разработчик веб-приложений" />
@@ -372,7 +454,7 @@ export default function CatalogPage() {
             <Input.TextArea rows={3} placeholder="Описание стажировки, требования..." />
           </Form.Item>
           <Form.Item label="Количество мест" name="slotsTotal" rules={[{ required: true, message: "Укажите количество" }]}>
-            <Input type="number" min={1} />
+            <InputNumber min={1} style={{ width: "100%" }} />
           </Form.Item>
           <div style={{ textAlign: "right" }}>
             <Space>
@@ -390,6 +472,7 @@ export default function CatalogPage() {
         onCancel={() => { setNewCompanyModal(false); newCompanyForm.resetFields(); }}
         footer={null}
         width={480}
+        zIndex={1100}
       >
         <Form form={newCompanyForm} layout="vertical" onFinish={handleCreateCompany} style={{ marginTop: 16 }}>
           <Form.Item label="Название" name="name" rules={[{ required: true, message: "Введите название" }]}>
@@ -411,6 +494,59 @@ export default function CatalogPage() {
             <Space>
               <Button onClick={() => { setNewCompanyModal(false); newCompanyForm.resetFields(); }}>Отмена</Button>
               <Button type="primary" htmlType="submit" loading={newCompanyLoading}>Создать</Button>
+            </Space>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Модал создания типа практики */}
+      <Modal
+        title="Новый тип практики"
+        open={newTypeModal}
+        onCancel={() => { setNewTypeModal(false); newTypeForm.resetFields(); }}
+        footer={null}
+        destroyOnClose
+        zIndex={1100}
+      >
+        <Form form={newTypeForm} layout="vertical" onFinish={handleCreatePracticeType} style={{ marginTop: 16 }}>
+          <Form.Item label="Код" name="code" rules={[{ required: true, message: "Введите код" }]}>
+            <Input placeholder="production" />
+          </Form.Item>
+          <Form.Item label="Название" name="name" rules={[{ required: true, message: "Введите название" }]}>
+            <Input placeholder="Производственная практика" />
+          </Form.Item>
+          <div style={{ textAlign: "right" }}>
+            <Space>
+              <Button onClick={() => { setNewTypeModal(false); newTypeForm.resetFields(); }}>Отмена</Button>
+              <Button type="primary" htmlType="submit" loading={newTypeLoading}>Создать</Button>
+            </Space>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Модал создания периода */}
+      <Modal
+        title="Новый период практики"
+        open={newPeriodModal}
+        onCancel={() => { setNewPeriodModal(false); newPeriodForm.resetFields(); }}
+        footer={null}
+        destroyOnClose
+        zIndex={1100}
+      >
+        <Form form={newPeriodForm} layout="vertical" onFinish={handleCreatePeriod} style={{ marginTop: 16 }}>
+          <Form.Item label="Название" name="name" rules={[{ required: true, message: "Введите название" }]}>
+            <Input placeholder="Лето 2025" />
+          </Form.Item>
+          <Form.Item label="Дата начала" name="dateStart" rules={[{ required: true, message: "Укажите дату" }]}>
+            <Input type="date" />
+          </Form.Item>
+          <Form.Item label="Дата окончания" name="dateEnd" rules={[{ required: true, message: "Укажите дату" }]}>
+            <Input type="date" />
+          </Form.Item>
+          <div style={{ textAlign: "right" }}>
+            <Space>
+              <Button onClick={() => { setNewPeriodModal(false); newPeriodForm.resetFields(); }}>Отмена</Button>
+              <Button type="primary" htmlType="submit" loading={newPeriodLoading}>Создать</Button>
             </Space>
           </div>
         </Form>

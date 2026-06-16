@@ -42,6 +42,11 @@ function getMenuItems(role: string) {
       icon: <BookOutlined />,
       label: <Link href="/catalog">Каталог мест</Link>,
     },
+    {
+      key: "/companies",
+      icon: <BankOutlined />,
+      label: <Link href="/companies">Предприятия</Link>,
+    },
   ];
 
   const curatorItems = [
@@ -59,6 +64,11 @@ function getMenuItems(role: string) {
       key: "/catalog",
       icon: <BookOutlined />,
       label: <Link href="/catalog">Каталог мест</Link>,
+    },
+    {
+      key: "/companies",
+      icon: <BankOutlined />,
+      label: <Link href="/companies">Предприятия</Link>,
     },
   ];
 
@@ -79,6 +89,11 @@ function getMenuItems(role: string) {
       label: <Link href="/catalog">Каталог мест</Link>,
     },
     {
+      key: "/companies",
+      icon: <BankOutlined />,
+      label: <Link href="/companies">Предприятия</Link>,
+    },
+    {
       key: "admin",
       icon: <SettingOutlined />,
       label: "Администрирование",
@@ -92,6 +107,16 @@ function getMenuItems(role: string) {
           key: "/admin/students",
           icon: <SolutionOutlined />,
           label: <Link href="/admin/students">Студенты</Link>,
+        },
+        {
+          key: "/admin/curators",
+          icon: <UserOutlined />,
+          label: <Link href="/admin/curators">Кураторы</Link>,
+        },
+        {
+          key: "/admin/groups",
+          icon: <TeamOutlined />,
+          label: <Link href="/admin/groups">Группы (управление)</Link>,
         },
         {
           key: "/admin/institutions",
@@ -132,21 +157,27 @@ export function Sidebar({ role, userName }: SidebarProps) {
       ? "/dashboard"
       : pathname.startsWith("/admin/users")
         ? "/admin/users"
-        : pathname.startsWith("/admin/institutions")
-          ? "/admin/institutions"
-          : pathname.startsWith("/admin/periods")
-            ? "/admin/periods"
-            : pathname.startsWith("/admin/dictionaries")
-              ? "/admin/dictionaries"
-              : pathname.startsWith("/admin/students")
-                ? "/admin/students"
-                : pathname.startsWith("/practices")
-                ? "/practices"
-                : pathname.startsWith("/catalog")
-                  ? "/catalog"
-                  : pathname.startsWith("/groups")
-                    ? "/groups"
-                    : pathname;
+        : pathname.startsWith("/admin/students")
+          ? "/admin/students"
+          : pathname.startsWith("/admin/curators")
+            ? "/admin/curators"
+            : pathname.startsWith("/admin/groups")
+            ? "/admin/groups"
+            : pathname.startsWith("/admin/institutions")
+              ? "/admin/institutions"
+              : pathname.startsWith("/admin/periods")
+                ? "/admin/periods"
+                : pathname.startsWith("/admin/dictionaries")
+                  ? "/admin/dictionaries"
+                  : pathname.startsWith("/practices")
+                    ? "/practices"
+                    : pathname.startsWith("/catalog")
+                      ? "/catalog"
+                      : pathname.startsWith("/companies")
+                        ? "/companies"
+                        : pathname.startsWith("/groups")
+                          ? "/groups"
+                          : pathname;
 
   const openKeys = pathname.startsWith("/admin/") ? ["admin"] : [];
 

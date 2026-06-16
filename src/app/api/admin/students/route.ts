@@ -16,28 +16,38 @@ export async function GET(req: NextRequest) {
   const groupId = searchParams.get("groupId");
 
   const where = {
+    role: "student" as const,
     ...(search ? {
       OR: [
-        { user: { fullName: { contains: search, mode: "insensitive" as const } } },
-        { user: { email: { contains: search, mode: "insensitive" as const } } },
-        { recordBookNo: { contains: search, mode: "insensitive" as const } },
+        { fullName: { contains: search, mode: "insensitive" as const } },
+        { email: { contains: search, mode: "insensitive" as const } },
+        { student: { recordBookNo: { contains: search, mode: "insensitive" as const } } },
       ],
     } : {}),
-    ...(groupId ? { groupId: Number(groupId) } : {}),
+    ...(groupId ? { student: { groupId: Number(groupId) } } : {}),
   };
 
   const [items, total] = await Promise.all([
-    prisma.student.findMany({
+    prisma.user.findMany({
       where,
       skip: (page - 1) * pageSize,
       take: pageSize,
-      orderBy: { user: { fullName: "asc" } },
-      include: {
-        user: { select: { id: true, fullName: true, email: true, isActive: true } },
-        group: { select: { id: true, name: true, specialty: { select: { name: true } } } },
+      orderBy: { fullName: "asc" },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        isActive: true,
+        student: {
+          select: {
+            id: true,
+            recordBookNo: true,
+            group: { select: { id: true, name: true, specialty: { select: { name: true } } } },
+          },
+        },
       },
     }),
-    prisma.student.count({ where }),
+    prisma.user.count({ where }),
   ]);
 
   return ok({ items, total, page, pageSize });
@@ -53,8 +63,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { fullName, email, password, groupId, recordBookNo } = body;
 
-    if (!fullName || !email || !password || !groupId) {
-      return err("Обязательные поля: ФИО, email, пароль, группа", 400);
+    if (!fullName || !email || !password) {
+      return err("Обязательные поля: ФИО, email, пароль", 400);
     }
 
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -62,20 +72,27 @@ export async function POST(req: NextRequest) {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const student = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: { email, fullName, passwordHash, role: "student" },
       });
-      return tx.student.create({
-        data: { userId: user.id, groupId: Number(groupId), recordBookNo: recordBookNo || null },
-        include: {
-          user: { select: { id: true, fullName: true, email: true } },
-          group: { select: { id: true, name: true } },
-        },
-      });
+
+      const student = groupId
+        ? await tx.student.create({
+            data: { userId: user.id, groupId: Number(groupId), recordBookNo: recordBookNo || null },
+          })
+        : null;
+
+      return {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        isActive: user.isActive,
+        student: student ? { id: student.id, recordBookNo: student.recordBookNo, group: null } : null,
+      };
     });
 
-    return ok(student, 201);
+    return ok(result, 201);
   } catch (e) {
     console.error(e);
     return err("Ошибка создания студента", 500);

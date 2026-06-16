@@ -34,12 +34,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const curator = await prisma.curator.findUnique({ where: { userId: Number(session.user.id) } });
 
-    const [updated] = await prisma.$transaction([
-      prisma.practice.update({
+    const updated = await prisma.$transaction(async (tx) => {
+      const p = await tx.practice.update({
         where: { id: Number(id) },
         data: { status: parsed.data.status },
-      }),
-      prisma.practiceReview.create({
+      });
+
+      await tx.practiceReview.create({
         data: {
           practiceId: Number(id),
           curatorId: curator?.id ?? 0,
@@ -47,8 +48,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           newStatus: parsed.data.status,
           comment: parsed.data.comment,
         },
-      }),
-    ]);
+      });
+
+      // Free the reserved slot when a practice with an offer is rejected
+      if (parsed.data.status === "rejected" && practice.offerId) {
+        await tx.practiceOffer.update({
+          where: { id: practice.offerId },
+          data: { slotsTaken: { decrement: 1 } },
+        });
+      }
+
+      return p;
+    });
 
     return ok(updated);
   } catch (e) {

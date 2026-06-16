@@ -11,6 +11,8 @@ export default auth((req) => {
   const role = req.auth?.user?.role;
 
   if (pathname.startsWith("/api/auth")) return NextResponse.next();
+  // API handlers manage their own auth — middleware only handles page routes
+  if (pathname.startsWith("/api/")) return NextResponse.next();
 
   if (OPEN_ROUTES.includes(pathname)) return NextResponse.next();
 
