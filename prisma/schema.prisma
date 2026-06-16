@@ -1,0 +1,294 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  student
+  curator
+  admin
+  company
+}
+
+enum PracticeStatus {
+  draft
+  submitted
+  needs_revision
+  approved
+  rejected
+  completed
+}
+
+enum DocumentStatus {
+  uploaded
+  accepted
+  rejected
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  fullName     String   @map("full_name") @db.VarChar(255)
+  role         UserRole
+  phone        String?  @db.VarChar(32)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  student           Student?
+  curator           Curator?
+  ownedCompany      Company?        @relation("CompanyOwner")
+  createdOffers     PracticeOffer[] @relation("OfferCreator")
+  uploadedDocuments Document[]      @relation("DocumentUploader")
+
+  @@map("users")
+}
+
+model Institution {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  shortName String?  @map("short_name") @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  specialties Specialty[]
+
+  @@map("institutions")
+}
+
+model Specialty {
+  id            Int         @id @default(autoincrement())
+  institutionId Int         @map("institution_id")
+  code          String?     @db.VarChar(32)
+  name          String      @db.VarChar(255)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id])
+  groups      Group[]
+
+  @@map("specialties")
+}
+
+model Group {
+  id             Int      @id @default(autoincrement())
+  specialtyId    Int      @map("specialty_id")
+  name           String   @db.VarChar(64)
+  course         Int?
+  enrollmentYear Int?     @map("enrollment_year")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  specialty     Specialty      @relation(fields: [specialtyId], references: [id])
+  students      Student[]
+  groupCurators GroupCurator[]
+
+  @@map("groups")
+}
+
+model Student {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @unique @map("user_id")
+  groupId      Int      @map("group_id")
+  recordBookNo String?  @map("record_book_no") @db.VarChar(32)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user      User       @relation(fields: [userId], references: [id])
+  group     Group      @relation(fields: [groupId], references: [id])
+  practices Practice[]
+
+  @@map("students")
+}
+
+model Curator {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique @map("user_id")
+  position   String?  @db.VarChar(128)
+  department String?  @db.VarChar(128)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user          User             @relation(fields: [userId], references: [id])
+  groupCurators GroupCurator[]
+  reviews       PracticeReview[]
+
+  @@map("curators")
+}
+
+model GroupCurator {
+  id        Int      @id @default(autoincrement())
+  groupId   Int      @map("group_id")
+  curatorId Int      @map("curator_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  group   Group   @relation(fields: [groupId], references: [id])
+  curator Curator @relation(fields: [curatorId], references: [id])
+
+  @@unique([groupId, curatorId])
+  @@map("group_curators")
+}
+
+model PracticePeriod {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(128)
+  dateStart DateTime @map("date_start") @db.Date
+  dateEnd   DateTime @map("date_end") @db.Date
+  isOpen    Boolean  @default(true) @map("is_open")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  practices      Practice[]
+  practiceOffers PracticeOffer[]
+
+  @@map("practice_periods")
+}
+
+model PracticeType {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique @db.VarChar(32)
+  name      String   @db.VarChar(128)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  practices      Practice[]
+  practiceOffers PracticeOffer[]
+
+  @@map("practice_types")
+}
+
+model DocumentType {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique @db.VarChar(32)
+  name       String   @db.VarChar(128)
+  isRequired Boolean  @default(true) @map("is_required")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  offerTemplates OfferTemplate[]
+  documents      Document[]
+
+  @@map("document_types")
+}
+
+model Company {
+  id            Int      @id @default(autoincrement())
+  name          String   @db.VarChar(255)
+  inn           String?  @db.VarChar(16)
+  address       String?  @db.VarChar(255)
+  contactPerson String?  @map("contact_person") @db.VarChar(255)
+  contactPhone  String?  @map("contact_phone") @db.VarChar(32)
+  ownerUserId   Int?     @unique @map("owner_user_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  ownerUser      User?           @relation("CompanyOwner", fields: [ownerUserId], references: [id])
+  practiceOffers PracticeOffer[]
+  practices      Practice[]
+
+  @@map("companies")
+}
+
+model PracticeOffer {
+  id             Int      @id @default(autoincrement())
+  companyId      Int      @map("company_id")
+  practiceTypeId Int      @map("practice_type_id")
+  periodId       Int      @map("period_id")
+  title          String   @db.VarChar(255)
+  description    String?
+  slotsTotal     Int      @map("slots_total")
+  slotsTaken     Int      @default(0) @map("slots_taken")
+  createdBy      Int      @map("created_by")
+  isPublished    Boolean  @default(true) @map("is_published")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  company      Company        @relation(fields: [companyId], references: [id])
+  practiceType PracticeType   @relation(fields: [practiceTypeId], references: [id])
+  period       PracticePeriod @relation(fields: [periodId], references: [id])
+  creator      User           @relation("OfferCreator", fields: [createdBy], references: [id])
+  templates    OfferTemplate[]
+  practices    Practice[]
+
+  @@map("practice_offers")
+}
+
+model OfferTemplate {
+  id             Int      @id @default(autoincrement())
+  offerId        Int      @map("offer_id")
+  documentTypeId Int      @map("document_type_id")
+  fileKey        String   @map("file_key") @db.VarChar(512)
+  prefilledFields Json?   @map("prefilled_fields")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  offer        PracticeOffer @relation(fields: [offerId], references: [id])
+  documentType DocumentType  @relation(fields: [documentTypeId], references: [id])
+
+  @@map("offer_templates")
+}
+
+model Practice {
+  id             Int            @id @default(autoincrement())
+  studentId      Int            @map("student_id")
+  practiceTypeId Int            @map("practice_type_id")
+  periodId       Int            @map("period_id")
+  offerId        Int?           @map("offer_id")
+  companyId      Int?           @map("company_id")
+  customPlace    String?        @map("custom_place") @db.VarChar(255)
+  dateStart      DateTime?      @map("date_start") @db.Date
+  dateEnd        DateTime?      @map("date_end") @db.Date
+  status         PracticeStatus @default(draft)
+  grade          String?        @db.VarChar(16)
+  submittedAt    DateTime?      @map("submitted_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  student      Student        @relation(fields: [studentId], references: [id])
+  practiceType PracticeType   @relation(fields: [practiceTypeId], references: [id])
+  period       PracticePeriod @relation(fields: [periodId], references: [id])
+  offer        PracticeOffer? @relation(fields: [offerId], references: [id])
+  company      Company?       @relation(fields: [companyId], references: [id])
+  documents    Document[]
+  reviews      PracticeReview[]
+
+  @@map("practices")
+}
+
+model Document {
+  id             Int            @id @default(autoincrement())
+  practiceId     Int            @map("practice_id")
+  documentTypeId Int            @map("document_type_id")
+  fileKey        String         @map("file_key") @db.VarChar(512)
+  originalName   String?        @map("original_name") @db.VarChar(255)
+  status         DocumentStatus @default(uploaded)
+  reviewComment  String?        @map("review_comment")
+  uploadedBy     Int            @map("uploaded_by")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  practice     Practice     @relation(fields: [practiceId], references: [id])
+  documentType DocumentType @relation(fields: [documentTypeId], references: [id])
+  uploader     User         @relation("DocumentUploader", fields: [uploadedBy], references: [id])
+
+  @@map("documents")
+}
+
+model PracticeReview {
+  id         Int      @id @default(autoincrement())
+  practiceId Int      @map("practice_id")
+  curatorId  Int      @map("curator_id")
+  oldStatus  String   @map("old_status") @db.VarChar(32)
+  newStatus  String   @map("new_status") @db.VarChar(32)
+  comment    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  practice Practice @relation(fields: [practiceId], references: [id])
+  curator  Curator  @relation(fields: [curatorId], references: [id])
+
+  @@map("practice_reviews")
+}
