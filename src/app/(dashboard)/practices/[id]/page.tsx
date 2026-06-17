@@ -23,6 +23,9 @@ import {
   Row,
   Col,
   Popconfirm,
+  DatePicker,
+  Empty,
+  Divider,
 } from "antd";
 import {
   ArrowLeftOutlined,
@@ -33,6 +36,9 @@ import {
   DownloadOutlined,
   SendOutlined,
   DeleteOutlined,
+  BookOutlined,
+  ExportOutlined,
+  PlusOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -41,6 +47,13 @@ import { DocumentStatusTag } from "@/components/ui/DocumentStatusTag";
 import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
+
+interface DiaryEntry {
+  id: number;
+  entryDate: string;
+  content: string;
+  updatedAt: string;
+}
 
 interface Document {
   id: number;
@@ -76,6 +89,7 @@ interface Practice {
   offer?: { title: string; company: { name: string; address?: string; contactPerson?: string } };
   documents: Document[];
   reviews: Review[];
+  diaryEntries: DiaryEntry[];
 }
 
 export default function PracticeDetailPage() {
@@ -91,6 +105,10 @@ export default function PracticeDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [form] = Form.useForm();
   const [gradeForm] = Form.useForm();
+  const [diaryForm] = Form.useForm();
+  const [diaryLoading, setDiaryLoading] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
+  const [exportLoading, setExportLoading] = useState(false);
 
   const role = session?.user?.role;
   const id = params.id as string;
@@ -202,6 +220,41 @@ export default function PracticeDetailPage() {
     }
   }
 
+  async function handleDiarySave(values: { entryDate: unknown; content: string }) {
+    setDiaryLoading(true);
+    try {
+      const entryDate = (values.entryDate as { format: (s: string) => string }).format("YYYY-MM-DD");
+      const res = await fetch(`/api/practices/${id}/diary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entryDate, content: values.content }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      message.success("Запись сохранена");
+      diaryForm.resetFields();
+      setEditingEntry(null);
+      load();
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : "Ошибка сохранения");
+    } finally {
+      setDiaryLoading(false);
+    }
+  }
+
+  async function handleDiaryExport() {
+    setExportLoading(true);
+    try {
+      const res = await fetch(`/api/practices/${id}/diary/export`, { method: "POST" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      message.success("Дневник сохранён как документ практики");
+      load();
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : "Ошибка экспорта");
+    } finally {
+      setExportLoading(false);
+    }
+  }
+
   if (loading) return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><Spin size="large" /></div>;
   if (error || !practice) return <Alert type="error" message={error ?? "Данные не найдены"} />;
 
@@ -285,6 +338,143 @@ export default function PracticeDetailPage() {
               )}
             </Descriptions>
           </Card>
+
+          {/* Дневник практики */}
+          {(() => {
+            const canWriteDiary =
+              role === "student" &&
+              practice.status !== "completed" &&
+              practice.status !== "rejected";
+            const canExport = role === "student" && practice.diaryEntries.length > 0;
+            const showDiary = role === "student" || role === "curator" || role === "admin";
+
+            if (!showDiary) return null;
+
+            return (
+              <Card
+                title={
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <Space>
+                      <BookOutlined style={{ color: "#2563EB" }} />
+                      <span style={{ fontWeight: 600 }}>Дневник практики</span>
+                      {practice.diaryEntries.length > 0 && (
+                        <Tag color="blue">{practice.diaryEntries.length} зап.</Tag>
+                      )}
+                    </Space>
+                    {canExport && (
+                      <Button
+                        size="small"
+                        icon={<ExportOutlined />}
+                        loading={exportLoading}
+                        onClick={handleDiaryExport}
+                      >
+                        Сохранить как документ
+                      </Button>
+                    )}
+                  </div>
+                }
+                style={{ marginTop: 24 }}
+              >
+                {practice.diaryEntries.length === 0 ? (
+                  <Empty
+                    description={
+                      role === "student"
+                        ? "Записей ещё нет. Начните вести дневник!"
+                        : "Студент ещё не добавил записей"
+                    }
+                    style={{ margin: "16px 0" }}
+                  />
+                ) : (
+                  <Space direction="vertical" style={{ width: "100%" }} size={12}>
+                    {practice.diaryEntries.map((entry) => (
+                      <Card
+                        key={entry.id}
+                        size="small"
+                        style={{ background: "#F8FAFC", border: "1px solid #E2E8F0" }}
+                      >
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                          <div style={{ flex: 1 }}>
+                            <Text strong style={{ fontSize: 13, color: "#2563EB" }}>
+                              {dayjs(entry.entryDate).format("DD MMMM YYYY")}
+                            </Text>
+                            <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+                              ред. {dayjs(entry.updatedAt).format("DD.MM.YYYY HH:mm")}
+                            </Text>
+                            <div style={{ marginTop: 6, whiteSpace: "pre-wrap", fontSize: 13 }}>
+                              {entry.content}
+                            </div>
+                          </div>
+                          {canWriteDiary && (
+                            <Button
+                              size="small"
+                              icon={<EditOutlined />}
+                              onClick={() => {
+                                setEditingEntry(entry);
+                                diaryForm.setFieldsValue({
+                                  entryDate: dayjs(entry.entryDate),
+                                  content: entry.content,
+                                });
+                              }}
+                            />
+                          )}
+                        </div>
+                      </Card>
+                    ))}
+                  </Space>
+                )}
+
+                {canWriteDiary && (
+                  <>
+                    <Divider style={{ margin: "16px 0 12px" }}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {editingEntry ? "Редактирование записи" : "Новая запись"}
+                      </Text>
+                    </Divider>
+                    <Form form={diaryForm} layout="vertical" onFinish={handleDiarySave}>
+                      <Form.Item
+                        label="Дата"
+                        name="entryDate"
+                        rules={[{ required: true, message: "Выберите дату" }]}
+                      >
+                        <DatePicker
+                          style={{ width: "100%" }}
+                          format="DD.MM.YYYY"
+                          disabledDate={(d) => {
+                            const today = dayjs().endOf("day");
+                            if (d.isAfter(today)) return true;
+                            if (practice.dateStart && d.isBefore(dayjs(practice.dateStart).startOf("day"))) return true;
+                            return false;
+                          }}
+                        />
+                      </Form.Item>
+                      <Form.Item
+                        label="Текст записи"
+                        name="content"
+                        rules={[{ required: true, message: "Введите текст записи" }]}
+                      >
+                        <Input.TextArea rows={5} placeholder="Опишите, что вы делали сегодня на практике..." maxLength={10000} showCount />
+                      </Form.Item>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {editingEntry && (
+                          <Button
+                            onClick={() => {
+                              setEditingEntry(null);
+                              diaryForm.resetFields();
+                            }}
+                          >
+                            Отмена
+                          </Button>
+                        )}
+                        <Button type="primary" htmlType="submit" loading={diaryLoading} icon={<PlusOutlined />}>
+                          {editingEntry ? "Сохранить изменения" : "Добавить запись"}
+                        </Button>
+                      </div>
+                    </Form>
+                  </>
+                )}
+              </Card>
+            );
+          })()}
 
           <Card
             title={<span style={{ fontWeight: 600 }}>Документы</span>}

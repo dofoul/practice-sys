@@ -45,6 +45,7 @@ model User {
   ownedCompany      Company?        @relation("CompanyOwner")
   createdOffers     PracticeOffer[] @relation("OfferCreator")
   uploadedDocuments Document[]      @relation("DocumentUploader")
+  diaryEntries      DiaryEntry[]
 
   @@map("users")
 }
@@ -255,8 +256,25 @@ model Practice {
   company      Company?       @relation(fields: [companyId], references: [id])
   documents    Document[]
   reviews      PracticeReview[]
+  diaryEntries DiaryEntry[]
 
   @@map("practices")
+}
+
+model DiaryEntry {
+  id         Int      @id @default(autoincrement())
+  practiceId Int      @map("practice_id")
+  entryDate  DateTime @map("entry_date") @db.Date
+  content    String   @db.Text
+  createdBy  Int      @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [createdBy], references: [id])
+
+  @@unique([practiceId, entryDate])
+  @@map("diary_entries")
 }
 
 model Document {

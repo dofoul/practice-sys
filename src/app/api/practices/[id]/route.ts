@@ -27,6 +27,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         include: { curator: { include: { user: { select: { fullName: true } } } } },
         orderBy: { createdAt: "asc" },
       },
+      diaryEntries: {
+        orderBy: { entryDate: "asc" },
+        select: { id: true, entryDate: true, content: true, updatedAt: true },
+      },
     },
   });
 
