@@ -152,7 +152,7 @@ export function NotificationBell() {
     <Dropdown
       open={open}
       onOpenChange={setOpen}
-      dropdownRender={() => dropdownContent}
+      popupRender={() => dropdownContent}
       placement="bottomRight"
       trigger={["click"]}
     >
