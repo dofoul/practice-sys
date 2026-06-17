@@ -3,8 +3,14 @@ import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { registerSchema } from "@/lib/validations/auth";
 import { ok, err } from "@/lib/api";
+import { rateLimit } from "@/lib/rateLimit";
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!rateLimit(`register:${ip}`, 10, 60_000)) {
+    return err("Слишком много запросов. Попробуйте через минуту.", 429);
+  }
+
   try {
     const body = await req.json();
     const parsed = registerSchema.safeParse(body);

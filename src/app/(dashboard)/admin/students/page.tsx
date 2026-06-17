@@ -302,7 +302,7 @@ export default function AdminStudentsPage() {
         onCancel={() => setModal({ open: false })}
         footer={null}
         width={520}
-        destroyOnClose
+        destroyOnHidden={false}
       >
         <Form form={form} layout="vertical" onFinish={handleSave} style={{ marginTop: 16 }}>
           <Form.Item label="ФИО" name="fullName" rules={[{ required: true, message: "Введите ФИО" }]}>
@@ -337,7 +337,7 @@ export default function AdminStudentsPage() {
                 label: `${g.name} — ${g.specialty.name}`,
                 value: g.id,
               }))}
-              dropdownRender={(menu) => (
+              popupRender={(menu) => (
                 <>
                   {menu}
                   <Divider style={{ margin: "4px 0" }} />
@@ -368,7 +368,7 @@ export default function AdminStudentsPage() {
         open={newGroupOpen}
         onCancel={() => { setNewGroupOpen(false); newGroupForm.resetFields(); }}
         footer={null}
-        destroyOnClose
+        destroyOnHidden={false}
         zIndex={1100}
       >
         <Form form={newGroupForm} layout="vertical" onFinish={handleCreateGroup} style={{ marginTop: 16 }}>
@@ -381,7 +381,7 @@ export default function AdminStudentsPage() {
               showSearch
               filterOption={(input, opt) => String(opt?.label ?? "").toLowerCase().includes(input.toLowerCase())}
               placeholder="Выберите или создайте специальность"
-              dropdownRender={(menu) => (
+              popupRender={(menu) => (
                 <>
                   {menu}
                   <Divider style={{ margin: "4px 0" }} />
@@ -415,7 +415,7 @@ export default function AdminStudentsPage() {
         open={newSpOpen}
         onCancel={() => { setNewSpOpen(false); newSpForm.resetFields(); }}
         footer={null}
-        destroyOnClose
+        destroyOnHidden={false}
         zIndex={1200}
       >
         <Form form={newSpForm} layout="vertical" onFinish={handleCreateSpecialty} style={{ marginTop: 16 }}>

@@ -15,7 +15,7 @@ interface User {
   id: number;
   email: string;
   fullName: string;
-  role: "student" | "curator" | "admin" | "company";
+  role: "student" | "curator" | "admin";
   phone?: string;
   isActive: boolean;
   createdAt: string;
@@ -25,7 +25,6 @@ const ROLE_LABELS: Record<string, { label: string; color: string }> = {
   student: { label: "Студент", color: "blue" },
   curator: { label: "Куратор", color: "purple" },
   admin: { label: "Администратор", color: "red" },
-  company: { label: "Предприятие", color: "orange" },
 };
 
 export default function AdminUsersPage() {

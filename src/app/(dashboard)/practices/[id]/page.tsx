@@ -387,6 +387,19 @@ export default function PracticeDetailPage() {
             {role === "student" && (practice.status === "draft" || practice.status === "needs_revision") && (
               <div style={{ marginTop: 16 }}>
                 <Upload
+                  beforeUpload={(file) => {
+                    const MAX = 10 * 1024 * 1024;
+                    if (file.size > MAX) {
+                      message.error(`Файл "${file.name}" превышает 10 МБ`);
+                      return false;
+                    }
+                    const ALLOWED = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "image/jpeg", "image/png"];
+                    if (!ALLOWED.includes(file.type)) {
+                      message.error("Допустимые форматы: PDF, DOC, DOCX, JPG, PNG");
+                      return false;
+                    }
+                    return true;
+                  }}
                   customRequest={async ({ file, onSuccess, onError }) => {
                     try {
                       const f = file as File;

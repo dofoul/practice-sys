@@ -231,34 +231,6 @@ export function Sidebar({ role, userName }: SidebarProps) {
         style={{ background: "#0F172A", border: "none", marginTop: 8 }}
       />
 
-      {!collapsed && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: 48,
-            left: 0,
-            right: 0,
-            padding: "12px 24px",
-            borderTop: "1px solid #1E293B",
-          }}
-        >
-          <Typography.Text style={{ color: "#94A3B8", fontSize: 12, display: "block" }}>
-            {role === "admin" ? "Администратор" : role === "curator" ? "Куратор" : "Студент"}
-          </Typography.Text>
-          <Typography.Text
-            style={{
-              color: "#CBD5E1",
-              fontSize: 13,
-              display: "block",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {userName}
-          </Typography.Text>
-        </div>
-      )}
     </Layout.Sider>
   );
 }

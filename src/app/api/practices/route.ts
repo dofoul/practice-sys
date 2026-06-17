@@ -82,6 +82,10 @@ export async function POST(req: NextRequest) {
 
     const { offerId, practiceTypeId, periodId, customPlace, dateStart, dateEnd } = parsed.data;
 
+    const period = await prisma.practicePeriod.findUnique({ where: { id: periodId } });
+    if (!period) return err("Период практики не найден", 404);
+    if (!period.isOpen) return err("Период практики закрыт для записи", 400);
+
     if (offerId) {
       const offer = await prisma.practiceOffer.findUnique({ where: { id: offerId } });
       if (!offer || !offer.isPublished) return err("Предложение не найдено или не опубликовано", 404);

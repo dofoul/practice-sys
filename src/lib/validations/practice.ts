@@ -12,7 +12,11 @@ export const createPracticeSchema = z
   .refine((d) => d.offerId || d.customPlace, {
     message: "Укажите место из каталога или введите своё место практики",
     path: ["customPlace"],
-  });
+  })
+  .refine(
+    (d) => !d.dateStart || !d.dateEnd || new Date(d.dateEnd) > new Date(d.dateStart),
+    { message: "Дата окончания должна быть позже даты начала", path: ["dateEnd"] }
+  );
 
 export const reviewPracticeSchema = z.object({
   status: z.enum(["approved", "needs_revision", "rejected"]),

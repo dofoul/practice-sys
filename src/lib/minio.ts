@@ -1,17 +1,18 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { env } from "@/env";
 
 const s3 = new S3Client({
-  endpoint: process.env.MINIO_ENDPOINT || "http://localhost:9000",
+  endpoint: env.MINIO_ENDPOINT,
   region: "us-east-1",
   credentials: {
-    accessKeyId: process.env.MINIO_ACCESS_KEY || "minioadmin",
-    secretAccessKey: process.env.MINIO_SECRET_KEY || "minioadmin",
+    accessKeyId: env.MINIO_ACCESS_KEY,
+    secretAccessKey: env.MINIO_SECRET_KEY,
   },
   forcePathStyle: true,
 });
 
-export const BUCKET = process.env.MINIO_BUCKET || "praktik";
+export const BUCKET = env.MINIO_BUCKET;
 
 export async function getUploadPresignedUrl(key: string, contentType: string): Promise<string> {
   const command = new PutObjectCommand({

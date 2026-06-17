@@ -2,6 +2,15 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireRole, ok, err } from "@/lib/api";
 import bcrypt from "bcryptjs";
+import { z } from "zod";
+
+const createStudentSchema = z.object({
+  fullName: z.string().min(2, "ФИО обязательно").max(255),
+  email: z.string().email("Некорректный email"),
+  password: z.string().min(8, "Пароль должен содержать минимум 8 символов"),
+  groupId: z.number().int().positive().optional().nullable(),
+  recordBookNo: z.string().max(64).optional().nullable(),
+});
 
 export async function GET(req: NextRequest) {
   const { session, error } = await requireAuth();
@@ -61,11 +70,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { fullName, email, password, groupId, recordBookNo } = body;
+    const parsed = createStudentSchema.safeParse({
+      ...body,
+      groupId: body.groupId ? Number(body.groupId) : null,
+    });
+    if (!parsed.success) return err(parsed.error.errors[0].message, 400);
 
-    if (!fullName || !email || !password) {
-      return err("Обязательные поля: ФИО, email, пароль", 400);
-    }
+    const { fullName, email, password, groupId, recordBookNo } = parsed.data;
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return err("Пользователь с таким email уже существует", 409);
@@ -79,7 +90,7 @@ export async function POST(req: NextRequest) {
 
       const student = groupId
         ? await tx.student.create({
-            data: { userId: user.id, groupId: Number(groupId), recordBookNo: recordBookNo || null },
+            data: { userId: user.id, groupId: groupId!, recordBookNo: recordBookNo || null },
           })
         : null;
 

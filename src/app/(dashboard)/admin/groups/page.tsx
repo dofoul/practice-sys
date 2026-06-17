@@ -176,7 +176,7 @@ export default function AdminGroupsPage() {
         </Button>
       </div>
 
-      <Card style={{ borderRadius: 8 }} bodyStyle={{ padding: 0 }}>
+      <Card style={{ borderRadius: 8 }} styles={{ body: { padding: 0 } }}>
         <Table
           dataSource={groups}
           columns={columns}
@@ -194,7 +194,7 @@ export default function AdminGroupsPage() {
         open={createOpen}
         onCancel={() => { setCreateOpen(false); form.resetFields(); }}
         footer={null}
-        destroyOnClose
+        destroyOnHidden={false}
       >
         <Form form={form} layout="vertical" onFinish={handleCreate} style={{ marginTop: 16 }}>
           <Form.Item label="Название группы" name="name" rules={[{ required: true, message: "Введите название" }]}>
@@ -209,7 +209,7 @@ export default function AdminGroupsPage() {
                 String(opt?.label ?? "").toLowerCase().includes(input.toLowerCase())
               }
               placeholder="Выберите или создайте новую"
-              dropdownRender={(menu) => (
+              popupRender={(menu) => (
                 <>
                   {menu}
                   <Divider style={{ margin: "4px 0" }} />
@@ -250,7 +250,7 @@ export default function AdminGroupsPage() {
         open={spOpen}
         onCancel={() => { setSpOpen(false); spForm.resetFields(); }}
         footer={null}
-        destroyOnClose
+        destroyOnHidden={false}
         zIndex={1100}
       >
         <Form form={spForm} layout="vertical" onFinish={handleCreateSpecialty} style={{ marginTop: 16 }}>

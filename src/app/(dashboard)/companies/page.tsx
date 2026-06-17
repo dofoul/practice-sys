@@ -128,7 +128,7 @@ export default function CompaniesPage() {
             <Col key={c.id} xs={24} sm={12} lg={8} xl={6}>
               <Card
                 style={{ borderRadius: 8, height: "100%", border: "1px solid #E2E8F0" }}
-                bodyStyle={{ padding: 20 }}
+                styles={{ body: { padding: 20 } }}
               >
                 <Space align="start" style={{ marginBottom: 12 }}>
                   <div
@@ -187,7 +187,7 @@ export default function CompaniesPage() {
           open={createOpen}
           onCancel={() => { setCreateOpen(false); form.resetFields(); }}
           footer={null}
-          destroyOnClose
+          destroyOnHidden
         >
           <Form form={form} layout="vertical" onFinish={handleCreate} style={{ marginTop: 16 }}>
             <Form.Item label="Название" name="name" rules={[{ required: true, message: "Введите название" }]}>

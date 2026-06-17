@@ -250,14 +250,14 @@ export default function AdminCuratorsPage() {
             color: "#7C3AED",
           },
         ].map((stat) => (
-          <Card key={stat.label} style={{ flex: 1, minWidth: 160, borderRadius: 8 }} bodyStyle={{ padding: "16px 20px" }}>
+          <Card key={stat.label} style={{ flex: 1, minWidth: 160, borderRadius: 8 }} styles={{ body: { padding: "16px 20px" } }}>
             <div style={{ fontSize: 24, fontWeight: 800, color: stat.color, lineHeight: 1 }}>{stat.value}</div>
             <Text type="secondary" style={{ fontSize: 12 }}>{stat.label}</Text>
           </Card>
         ))}
       </div>
 
-      <Card bodyStyle={{ padding: 0 }} style={{ borderRadius: 8 }}>
+      <Card styles={{ body: { padding: 0 } }} style={{ borderRadius: 8 }}>
         <div style={{ padding: "16px 16px 0" }}>
           <Input
             placeholder="Поиск по ФИО или email..."
@@ -287,7 +287,7 @@ export default function AdminCuratorsPage() {
         onCancel={() => { setModal({ open: false }); form.resetFields(); }}
         footer={null}
         width={560}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" onFinish={handleSave} style={{ marginTop: 16 }}>
           <Form.Item label="ФИО" name="fullName" rules={[{ required: true, message: "Введите ФИО" }]}>

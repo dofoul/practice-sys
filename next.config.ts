@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import "./src/env"; // validates env vars at build time
 
 const nextConfig: NextConfig = {
   output: "standalone",

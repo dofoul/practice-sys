@@ -12,9 +12,6 @@ interface Props {
 }
 
 export function DashboardShell({ role, userName, children }: Props) {
-  const roleLabel =
-    role === "admin" ? "Администратор" : role === "curator" ? "Куратор" : "Студент";
-
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F5F7FA" }}>
       <Sidebar role={role} userName={userName} />
@@ -38,9 +35,6 @@ export function DashboardShell({ role, userName, children }: Props) {
         >
           <div />
           <Space size={12}>
-            <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-              {roleLabel}
-            </Typography.Text>
             <Typography.Text strong style={{ fontSize: 14, color: "#0F172A" }}>
               {userName}
             </Typography.Text>

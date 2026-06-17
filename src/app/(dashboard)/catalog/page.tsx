@@ -396,7 +396,7 @@ export default function CatalogPage() {
               showSearch
               optionFilterProp="label"
               placeholder="Выберите или создайте новое"
-              dropdownRender={(menu) => (
+              popupRender={(menu) => (
                 <>
                   {menu}
                   <div style={{ padding: "8px", borderTop: "1px solid #E2E8F0" }}>
@@ -417,7 +417,7 @@ export default function CatalogPage() {
             <Select
               options={practiceTypes.map((t) => ({ label: t.name, value: t.id }))}
               placeholder="Выберите или создайте новый"
-              dropdownRender={(menu) => (
+              popupRender={(menu) => (
                 <>
                   {menu}
                   <Divider style={{ margin: "4px 0" }} />
@@ -434,7 +434,7 @@ export default function CatalogPage() {
             <Select
               options={periods.map((p) => ({ label: p.name, value: p.id }))}
               placeholder="Выберите или создайте новый"
-              dropdownRender={(menu) => (
+              popupRender={(menu) => (
                 <>
                   {menu}
                   <Divider style={{ margin: "4px 0" }} />
@@ -505,7 +505,7 @@ export default function CatalogPage() {
         open={newTypeModal}
         onCancel={() => { setNewTypeModal(false); newTypeForm.resetFields(); }}
         footer={null}
-        destroyOnClose
+        destroyOnHidden={false}
         zIndex={1100}
       >
         <Form form={newTypeForm} layout="vertical" onFinish={handleCreatePracticeType} style={{ marginTop: 16 }}>
@@ -530,7 +530,7 @@ export default function CatalogPage() {
         open={newPeriodModal}
         onCancel={() => { setNewPeriodModal(false); newPeriodForm.resetFields(); }}
         footer={null}
-        destroyOnClose
+        destroyOnHidden={false}
         zIndex={1100}
       >
         <Form form={newPeriodForm} layout="vertical" onFinish={handleCreatePeriod} style={{ marginTop: 16 }}>
