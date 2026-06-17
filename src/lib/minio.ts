@@ -14,13 +14,24 @@ const s3 = new S3Client({
 
 export const BUCKET = env.MINIO_BUCKET;
 
+// Presigned URLs are signed against MINIO_ENDPOINT (internal Docker hostname).
+// If MINIO_PUBLIC_ENDPOINT differs (e.g. http://localhost:9000 vs http://minio:9000),
+// replace the host in the URL so the browser can actually reach it.
+function toPublicUrl(url: string): string {
+  if (!env.MINIO_PUBLIC_ENDPOINT) return url;
+  const internal = new URL(env.MINIO_ENDPOINT);
+  const pub = new URL(env.MINIO_PUBLIC_ENDPOINT);
+  if (internal.origin === pub.origin) return url;
+  return url.replace(internal.origin, pub.origin);
+}
+
 export async function getUploadPresignedUrl(key: string, contentType: string): Promise<string> {
   const command = new PutObjectCommand({
     Bucket: BUCKET,
     Key: key,
     ContentType: contentType,
   });
-  return getSignedUrl(s3, command, { expiresIn: 3600 });
+  return toPublicUrl(await getSignedUrl(s3, command, { expiresIn: 3600 }));
 }
 
 export async function getDownloadPresignedUrl(key: string): Promise<string> {
@@ -28,7 +39,7 @@ export async function getDownloadPresignedUrl(key: string): Promise<string> {
     Bucket: BUCKET,
     Key: key,
   });
-  return getSignedUrl(s3, command, { expiresIn: 3600 });
+  return toPublicUrl(await getSignedUrl(s3, command, { expiresIn: 3600 }));
 }
 
 export async function deleteObject(key: string): Promise<void> {
