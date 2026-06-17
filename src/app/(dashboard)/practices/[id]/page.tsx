@@ -515,7 +515,7 @@ export default function PracticeDetailPage() {
                         </Tooltip>
                         {role === "student" &&
                           doc.status !== "accepted" &&
-                          (practice.status === "draft" || practice.status === "needs_revision") && (
+                          ["draft", "submitted", "needs_revision"].includes(practice.status) && (
                             <Popconfirm
                               title="Удалить документ?"
                               description="Файл будет удалён безвозвратно"
@@ -574,7 +574,7 @@ export default function PracticeDetailPage() {
               </Space>
             )}
 
-            {role === "student" && (practice.status === "draft" || practice.status === "needs_revision") && (
+            {role === "student" && ["draft", "submitted", "needs_revision"].includes(practice.status) && (
               <div style={{ marginTop: 16 }}>
                 <Upload
                   beforeUpload={(file) => {

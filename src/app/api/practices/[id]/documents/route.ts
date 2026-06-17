@@ -24,8 +24,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const practice = await prisma.practice.findUnique({ where: { id: Number(id) } });
   if (!practice) return err("Практика не найдена", 404);
 
-  if (practice.status !== "draft" && practice.status !== "needs_revision") {
-    return err("Документы можно загружать только в черновике или при доработке", 400);
+  if (!["draft", "submitted", "needs_revision"].includes(practice.status)) {
+    return err("Документы можно загружать только до принятия или отклонения практики", 400);
   }
 
   const studentWithMeta = await prisma.student.findUnique({
