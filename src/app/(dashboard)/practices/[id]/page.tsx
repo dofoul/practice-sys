@@ -39,7 +39,10 @@ import {
   BookOutlined,
   ExportOutlined,
   PlusOutlined,
+  MessageOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
+import { Avatar } from "antd";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { PracticeStatusTag } from "@/components/ui/PracticeStatusTag";
@@ -47,6 +50,13 @@ import { DocumentStatusTag } from "@/components/ui/DocumentStatusTag";
 import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
+
+interface Comment {
+  id: number;
+  content: string;
+  createdAt: string;
+  author: { id: number; fullName: string; role: string };
+}
 
 interface DiaryEntry {
   id: number;
@@ -109,6 +119,9 @@ export default function PracticeDetailPage() {
   const [diaryLoading, setDiaryLoading] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [commentLoading, setCommentLoading] = useState(false);
 
   const role = session?.user?.role;
   const id = params.id as string;
@@ -116,9 +129,13 @@ export default function PracticeDetailPage() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/practices/${id}`);
-      if (!res.ok) throw new Error();
-      setPractice(await res.json());
+      const [practiceRes, commentsRes] = await Promise.all([
+        fetch(`/api/practices/${id}`),
+        fetch(`/api/practices/${id}/comments`),
+      ]);
+      if (!practiceRes.ok) throw new Error();
+      setPractice(await practiceRes.json());
+      if (commentsRes.ok) setComments(await commentsRes.json());
     } catch {
       setError("Не удалось загрузить данные практики");
     } finally {
@@ -252,6 +269,26 @@ export default function PracticeDetailPage() {
       message.error(e instanceof Error ? e.message : "Ошибка экспорта");
     } finally {
       setExportLoading(false);
+    }
+  }
+
+  async function handleCommentSubmit() {
+    if (!commentText.trim()) return;
+    setCommentLoading(true);
+    try {
+      const res = await fetch(`/api/practices/${id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: commentText.trim() }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      const newComment = await res.json();
+      setComments((prev) => [...prev, newComment]);
+      setCommentText("");
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : "Ошибка отправки");
+    } finally {
+      setCommentLoading(false);
     }
   }
 
@@ -665,6 +702,97 @@ export default function PracticeDetailPage() {
                   ),
                 }))}
               />
+            )}
+          </Card>
+
+          {/* Чат */}
+          <Card
+            title={
+              <Space>
+                <MessageOutlined style={{ color: "#7C3AED" }} />
+                <span style={{ fontWeight: 600 }}>Переписка</span>
+                {comments.length > 0 && <Tag color="purple">{comments.length}</Tag>}
+              </Space>
+            }
+            style={{ marginTop: 24 }}
+          >
+            {/* Сообщения */}
+            <div style={{ maxHeight: 360, overflowY: "auto", marginBottom: 16 }}>
+              {comments.length === 0 ? (
+                <Empty description="Сообщений пока нет" style={{ margin: "24px 0" }} />
+              ) : (
+                <Space direction="vertical" style={{ width: "100%" }} size={12}>
+                  {comments.map((c) => {
+                    const isMe = Number(session?.user?.id) === c.author.id;
+                    const isStudent = c.author.role === "student";
+                    return (
+                      <div
+                        key={c.id}
+                        style={{
+                          display: "flex",
+                          flexDirection: isMe ? "row-reverse" : "row",
+                          gap: 8,
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <Avatar
+                          size={32}
+                          style={{ background: isStudent ? "#2563EB" : "#16A34A", flexShrink: 0 }}
+                          icon={<UserOutlined />}
+                        />
+                        <div style={{ maxWidth: "75%" }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexDirection: isMe ? "row-reverse" : "row" }}>
+                            <Text strong style={{ fontSize: 12 }}>{c.author.fullName}</Text>
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              {dayjs(c.createdAt).format("DD.MM HH:mm")}
+                            </Text>
+                          </div>
+                          <div
+                            style={{
+                              marginTop: 4,
+                              padding: "8px 12px",
+                              background: isMe ? "#EFF6FF" : "#F8FAFC",
+                              border: `1px solid ${isMe ? "#BFDBFE" : "#E2E8F0"}`,
+                              borderRadius: isMe ? "12px 4px 12px 12px" : "4px 12px 12px 12px",
+                              fontSize: 13,
+                              whiteSpace: "pre-wrap",
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {c.content}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </Space>
+              )}
+            </div>
+
+            {/* Поле ввода */}
+            {(role === "student" || role === "curator" || role === "admin") && (
+              <div style={{ display: "flex", gap: 8 }}>
+                <Input.TextArea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Написать сообщение..."
+                  autoSize={{ minRows: 1, maxRows: 4 }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleCommentSubmit();
+                    }
+                  }}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  type="primary"
+                  icon={<SendOutlined />}
+                  loading={commentLoading}
+                  disabled={!commentText.trim()}
+                  onClick={handleCommentSubmit}
+                />
+              </div>
             )}
           </Card>
         </Col>

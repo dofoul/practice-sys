@@ -8,7 +8,8 @@ export type NotificationType =
   | "practice_approved"
   | "practice_completed"
   | "document_reviewed"
-  | "diary_exported";
+  | "diary_exported"
+  | "practice_comment";
 
 interface CreateNotificationInput {
   userId: number;

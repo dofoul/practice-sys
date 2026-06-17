@@ -11,6 +11,7 @@ import {
   FileOutlined,
   EditOutlined,
   CheckSquareOutlined,
+  MessageOutlined,
   RightOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
@@ -45,6 +46,7 @@ function NotificationIcon({ type, isRead }: { type: string; isRead: boolean }) {
     case "practice_needs_revision": return <EditOutlined {...props} style={{ ...props.style, color: color ?? "#D97706" }} />;
     case "practice_completed":   return <CheckSquareOutlined {...props} style={{ ...props.style, color: color ?? "#16A34A" }} />;
     case "document_reviewed":    return <FileOutlined {...props} style={{ ...props.style, color: color ?? "#2563EB" }} />;
+    case "practice_comment":     return <MessageOutlined {...props} style={{ ...props.style, color: color ?? "#7C3AED" }} />;
     default:                     return <BellOutlined {...props} />;
   }
 }

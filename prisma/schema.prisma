@@ -44,9 +44,10 @@ model User {
   curator           Curator?
   ownedCompany      Company?        @relation("CompanyOwner")
   createdOffers     PracticeOffer[] @relation("OfferCreator")
-  uploadedDocuments Document[]      @relation("DocumentUploader")
+  uploadedDocuments Document[]        @relation("DocumentUploader")
   diaryEntries      DiaryEntry[]
   notifications     Notification[]
+  comments          PracticeComment[]
 
   @@map("users")
 }
@@ -274,6 +275,7 @@ model Practice {
   documents    Document[]
   reviews      PracticeReview[]
   diaryEntries DiaryEntry[]
+  comments     PracticeComment[]
 
   @@map("practices")
 }
@@ -326,4 +328,18 @@ model PracticeReview {
   curator  Curator  @relation(fields: [curatorId], references: [id])
 
   @@map("practice_reviews")
+}
+
+model PracticeComment {
+  id         Int      @id @default(autoincrement())
+  practiceId Int      @map("practice_id")
+  userId     Int      @map("user_id")
+  content    String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [userId], references: [id])
+
+  @@map("practice_comments")
 }

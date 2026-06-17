@@ -7,6 +7,7 @@ import {
 import {
   BellOutlined, FileDoneOutlined, CheckCircleOutlined, CloseCircleOutlined,
   TrophyOutlined, FileOutlined, EditOutlined, CheckSquareOutlined, CheckOutlined,
+  MessageOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import dayjs from "dayjs";
@@ -36,6 +37,7 @@ const TYPE_META: Record<string, { label: string; color: string; icon: React.Reac
   practice_needs_revision: { label: "На доработку",       color: "#D97706", icon: <EditOutlined /> },
   practice_completed:      { label: "Практика завершена", color: "#16A34A", icon: <CheckSquareOutlined /> },
   document_reviewed:       { label: "Документ проверен",  color: "#2563EB", icon: <FileOutlined /> },
+  practice_comment:        { label: "Сообщение",           color: "#7C3AED", icon: <MessageOutlined /> },
 };
 
 function getIcon(type: string, isRead: boolean) {
