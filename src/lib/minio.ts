@@ -10,6 +10,9 @@ const s3 = new S3Client({
     secretAccessKey: env.MINIO_SECRET_KEY,
   },
   forcePathStyle: true,
+  // AWS SDK v3.x sends x-amz-checksum-algorithm by default; MinIO rejects it
+  requestChecksumCalculation: "WHEN_REQUIRED",
+  responseChecksumValidation: "WHEN_REQUIRED",
 });
 
 export const BUCKET = env.MINIO_BUCKET;

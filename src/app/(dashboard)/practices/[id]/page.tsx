@@ -312,7 +312,7 @@ export default function PracticeDetailPage() {
       <Row gutter={[24, 24]}>
         <Col xs={24} lg={14}>
           <Card title={<span style={{ fontWeight: 600 }}>Информация о практике</span>}>
-            <Descriptions column={1} labelStyle={{ color: "#64748B", width: 160 }}>
+            <Descriptions column={1} styles={{ label: { color: "#64748B", width: 160 } }}>
               <Descriptions.Item label="Студент">{practice.student.user.fullName}</Descriptions.Item>
               <Descriptions.Item label="Группа">{practice.student.group.name}</Descriptions.Item>
               {practice.student.recordBookNo && (
