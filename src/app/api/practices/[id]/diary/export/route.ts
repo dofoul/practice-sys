@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth, ok, err } from "@/lib/api";
 import { s3, BUCKET } from "@/lib/minio";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { buildDiaryExportPath } from "@/lib/storage-path";
 import dayjs from "dayjs";
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -18,7 +19,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const practice = await prisma.practice.findUnique({
     where: { id: practiceId },
     include: {
-      student: { include: { user: { select: { fullName: true } } } },
+      student: {
+        include: {
+          user: { select: { fullName: true } },
+          group: { select: { name: true } },
+        },
+      },
+      period: { select: { name: true } },
       diaryEntries: { orderBy: { entryDate: "asc" } },
     },
   });
@@ -50,8 +57,11 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const textContent = lines.join("\n");
-  const timestamp = Date.now();
-  const fileKey = `practices/${practiceId}/diary-export-${timestamp}.txt`;
+  const fileKey = buildDiaryExportPath({
+    groupName: practice.student.group.name,
+    studentName: practice.student.user.fullName,
+    periodName: practice.period.name,
+  });
 
   await s3.send(
     new PutObjectCommand({

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth, ok, err } from "@/lib/api";
 import { s3, BUCKET } from "@/lib/minio";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { v4 as uuidv4 } from "uuid";
+import { buildDocumentPath } from "@/lib/storage-path";
 
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -28,8 +28,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return err("Документы можно загружать только в черновике или при доработке", 400);
   }
 
-  const student = await prisma.student.findUnique({ where: { userId: Number(session.user.id) } });
-  if (!student || practice.studentId !== student.id) return err("Нет доступа", 403);
+  const studentWithMeta = await prisma.student.findUnique({
+    where: { userId: Number(session.user.id) },
+    include: {
+      user: { select: { fullName: true } },
+      group: { select: { name: true } },
+    },
+  });
+  if (!studentWithMeta || practice.studentId !== studentWithMeta.id) return err("Нет доступа", 403);
+
+  const period = await prisma.practicePeriod.findUnique({ where: { id: practice.periodId } });
 
   try {
     const formData = await req.formData();
@@ -49,7 +57,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const docType = await prisma.documentType.findFirst({ where: { code: documentTypeCode } });
     if (!docType) return err("Тип документа не найден", 404);
 
-    const fileKey = `practices/${id}/${uuidv4()}-${file.name}`;
+    const fileKey = buildDocumentPath({
+      groupName: studentWithMeta.group.name,
+      studentName: studentWithMeta.user.fullName,
+      periodName: period?.name ?? `practice-${id}`,
+      docTypeName: docType.name,
+      originalFileName: file.name,
+    });
     const arrayBuffer = await file.arrayBuffer();
 
     await s3.send(
