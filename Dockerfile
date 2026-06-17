@@ -16,7 +16,7 @@ COPY package.json package-lock.json* ./
 RUN --mount=type=cache,target=/root/.npm \
     npm config set registry https://registry.npmmirror.com/ && \
     npm install --no-audit --no-fund --prefer-offline
-
+  
 # ---------- Слой разработки (hot-reload) ----------
 FROM node:20-alpine AS dev
 RUN apk add --no-cache libc6-compat openssl

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireRole, ok, err } from "@/lib/api";
 import { gradePracticeSchema } from "@/lib/validations/practice";
+import { notifyPracticeGraded } from "@/lib/notifications";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { session, error } = await requireAuth();
@@ -40,6 +41,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
       }),
     ]);
+
+    const studentWithUser = await prisma.student.findUnique({
+      where: { id: practice.studentId },
+      include: { user: { select: { id: true } } },
+    });
+    if (studentWithUser) {
+      await notifyPracticeGraded(Number(id), studentWithUser.user.id, parsed.data.grade).catch(console.error);
+    }
 
     return ok(updated);
   } catch (e) {

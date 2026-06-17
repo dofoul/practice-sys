@@ -4,6 +4,7 @@ import { Avatar, Space, Typography } from "antd";
 import { UserOutlined } from "@ant-design/icons";
 import { Sidebar } from "./Sidebar";
 import { SignOutButton } from "./SignOutButton";
+import { NotificationBell } from "./NotificationBell";
 
 interface Props {
   role: string;
@@ -34,7 +35,8 @@ export function DashboardShell({ role, userName, children }: Props) {
           }}
         >
           <div />
-          <Space size={12}>
+          <Space size={8}>
+            <NotificationBell />
             <Typography.Text strong style={{ fontSize: 14, color: "#0F172A" }}>
               {userName}
             </Typography.Text>

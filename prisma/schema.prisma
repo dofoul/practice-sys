@@ -46,8 +46,25 @@ model User {
   createdOffers     PracticeOffer[] @relation("OfferCreator")
   uploadedDocuments Document[]      @relation("DocumentUploader")
   diaryEntries      DiaryEntry[]
+  notifications     Notification[]
 
   @@map("users")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  type      String   @db.VarChar(64)
+  title     String   @db.VarChar(255)
+  body      String   @db.Text
+  isRead    Boolean  @default(false) @map("is_read")
+  link      String?  @db.VarChar(512)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
 }
 
 model Institution {

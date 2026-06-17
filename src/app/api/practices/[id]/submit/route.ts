@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, ok, err } from "@/lib/api";
+import { notifyPracticeSubmitted } from "@/lib/notifications";
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { session, error } = await requireAuth();
@@ -23,6 +24,19 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     where: { id: Number(id) },
     data: { status: "submitted", submittedAt: new Date() },
   });
+
+  // Notify curators of the student's group
+  const studentWithGroup = await prisma.student.findUnique({
+    where: { id: student.id },
+    include: {
+      user: { select: { fullName: true } },
+      group: { include: { groupCurators: { include: { curator: true } } } },
+    },
+  });
+  if (studentWithGroup) {
+    const curatorUserIds = studentWithGroup.group.groupCurators.map((gc) => gc.curator.userId);
+    await notifyPracticeSubmitted(Number(id), studentWithGroup.user.fullName, curatorUserIds).catch(console.error);
+  }
 
   return ok(updated);
 }

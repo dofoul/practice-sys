@@ -13,6 +13,7 @@ import {
   DatabaseOutlined,
   SettingOutlined,
   SolutionOutlined,
+  BellOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -28,6 +29,11 @@ function getMenuItems(role: string) {
       key: "/dashboard",
       icon: <DashboardOutlined />,
       label: <Link href="/dashboard">Главная</Link>,
+    },
+    {
+      key: "/notifications",
+      icon: <BellOutlined />,
+      label: <Link href="/notifications">Уведомления</Link>,
     },
   ];
 
@@ -155,7 +161,9 @@ export function Sidebar({ role, userName }: SidebarProps) {
   const selectedKey =
     pathname === "/dashboard"
       ? "/dashboard"
-      : pathname.startsWith("/admin/users")
+      : pathname === "/notifications"
+        ? "/notifications"
+        : pathname.startsWith("/admin/users")
         ? "/admin/users"
         : pathname.startsWith("/admin/students")
           ? "/admin/students"
