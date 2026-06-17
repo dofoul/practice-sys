@@ -593,17 +593,19 @@ export default function PracticeDetailPage() {
                   customRequest={async ({ file, onSuccess, onError }) => {
                     try {
                       const f = file as File;
+                      const formData = new FormData();
+                      formData.append("file", f);
+                      formData.append("documentTypeCode", "report");
                       const res = await fetch(`/api/practices/${id}/documents`, {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ fileName: f.name, contentType: f.type, documentTypeCode: "report" }),
+                        body: formData,
                       });
-                      const { uploadUrl, document: doc } = await res.json();
-                      await fetch(uploadUrl, { method: "PUT", body: f, headers: { "Content-Type": f.type } });
+                      if (!res.ok) throw new Error((await res.json()).error);
                       message.success("Документ загружен");
                       load();
                       onSuccess?.({}, new XMLHttpRequest());
-                    } catch {
+                    } catch (e) {
+                      message.error(e instanceof Error ? e.message : "Ошибка загрузки");
                       onError?.(new Error("Ошибка загрузки"));
                     }
                   }}
