@@ -30,6 +30,9 @@
     "dayjs": "^1.11.13",
     "uuid": "^11.0.3"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^19",
