@@ -7,7 +7,7 @@ import {
 } from "antd";
 import {
   BankOutlined, PhoneOutlined, EnvironmentOutlined,
-  IdcardOutlined, UserOutlined, PlusOutlined, SearchOutlined,
+  IdcardOutlined, UserOutlined, PlusOutlined, SearchOutlined, EditOutlined,
 } from "@ant-design/icons";
 import { useSession } from "next-auth/react";
 
@@ -36,6 +36,11 @@ export default function CompaniesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [form] = Form.useForm();
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editForm] = Form.useForm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,6 +95,34 @@ export default function CompaniesPage() {
     }
   }
 
+  function openEdit(company: Company) {
+    setEditingCompany(company);
+    editForm.setFieldsValue(company);
+    setEditOpen(true);
+  }
+
+  async function handleEdit(values: Omit<Company, "id">) {
+    if (!editingCompany) return;
+    setEditLoading(true);
+    try {
+      const res = await fetch(`/api/admin/dictionaries/companies/${editingCompany.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Ошибка");
+      message.success("Предприятие обновлено");
+      setEditOpen(false);
+      setEditingCompany(null);
+      setCompanies((prev) => prev.map((c) => c.id === editingCompany.id ? { ...c, ...values } : c));
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
   if (loading) return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><Spin size="large" /></div>;
   if (error) return <Alert type="error" message={error} showIcon />;
 
@@ -129,6 +162,9 @@ export default function CompaniesPage() {
               <Card
                 style={{ borderRadius: 8, height: "100%", border: "1px solid #E2E8F0" }}
                 styles={{ body: { padding: 20 } }}
+                extra={canCreate ? (
+                  <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(c)} />
+                ) : undefined}
               >
                 <Space align="start" style={{ marginBottom: 12 }}>
                   <div
@@ -180,6 +216,39 @@ export default function CompaniesPage() {
           ))}
         </Row>
       )}
+
+      {/* Модал редактирования */}
+      <Modal
+        title="Редактировать предприятие"
+        open={editOpen}
+        onCancel={() => { setEditOpen(false); setEditingCompany(null); editForm.resetFields(); }}
+        footer={null}
+        destroyOnHidden
+      >
+        <Form form={editForm} layout="vertical" onFinish={handleEdit} style={{ marginTop: 16 }}>
+          <Form.Item label="Название" name="name" rules={[{ required: true, message: "Введите название" }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item label="ИНН" name="inn">
+            <Input placeholder="1234567890" />
+          </Form.Item>
+          <Form.Item label="Адрес" name="address">
+            <Input placeholder="г. Москва, ул. Примерная, д. 1" />
+          </Form.Item>
+          <Form.Item label="Контактное лицо" name="contactPerson">
+            <Input placeholder="Иванов Иван Иванович" />
+          </Form.Item>
+          <Form.Item label="Телефон" name="contactPhone">
+            <Input placeholder="+7 (999) 123-45-67" />
+          </Form.Item>
+          <div style={{ textAlign: "right" }}>
+            <Space>
+              <Button onClick={() => { setEditOpen(false); setEditingCompany(null); editForm.resetFields(); }}>Отмена</Button>
+              <Button type="primary" htmlType="submit" loading={editLoading}>Сохранить</Button>
+            </Space>
+          </div>
+        </Form>
+      </Modal>
 
       {canCreate && (
         <Modal

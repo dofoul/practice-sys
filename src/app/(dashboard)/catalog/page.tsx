@@ -19,6 +19,7 @@ import {
   Modal,
   Form,
   Divider,
+  Switch,
   App,
 } from "antd";
 import {
@@ -27,6 +28,7 @@ import {
   EnvironmentOutlined,
   TeamOutlined,
   BookOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -78,6 +80,11 @@ export default function CatalogPage() {
   const [newPeriodModal, setNewPeriodModal] = useState(false);
   const [newPeriodForm] = Form.useForm();
   const [newPeriodLoading, setNewPeriodLoading] = useState(false);
+
+  const [editModal, setEditModal] = useState(false);
+  const [editingOffer, setEditingOffer] = useState<Offer | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editForm] = Form.useForm();
 
   const role = session?.user?.role;
   const pageSize = 12;
@@ -211,6 +218,38 @@ export default function CatalogPage() {
     }
   }
 
+  function openEdit(offer: Offer) {
+    setEditingOffer(offer);
+    editForm.setFieldsValue({
+      title: offer.title,
+      description: offer.description,
+      slotsTotal: offer.slotsTotal,
+      isPublished: offer.isPublished,
+    });
+    setEditModal(true);
+  }
+
+  async function handleEdit(values: { title: string; description?: string; slotsTotal: number; isPublished: boolean }) {
+    if (!editingOffer) return;
+    setEditLoading(true);
+    try {
+      const res = await fetch(`/api/offers/${editingOffer.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      message.success("Предложение обновлено");
+      setEditModal(false);
+      setEditingOffer(null);
+      load();
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
   async function handleCreatePeriod(values: { name: string; dateStart: string; dateEnd: string }) {
     setNewPeriodLoading(true);
     try {
@@ -316,13 +355,12 @@ export default function CatalogPage() {
                       <Button type="text" size="small">Подробнее</Button>
                     </Link>,
                     role === "student" && hasSlots ? (
-                      <Button
-                        key="apply"
-                        type="primary"
-                        size="small"
-                        onClick={() => handleApply(offer.id)}
-                      >
+                      <Button key="apply" type="primary" size="small" onClick={() => handleApply(offer.id)}>
                         Выбрать
+                      </Button>
+                    ) : (role === "curator" || role === "admin") ? (
+                      <Button key="edit" type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(offer)}>
+                        Изменить
                       </Button>
                     ) : <span key="na" />,
                   ]}
@@ -519,6 +557,38 @@ export default function CatalogPage() {
             <Space>
               <Button onClick={() => { setNewTypeModal(false); newTypeForm.resetFields(); }}>Отмена</Button>
               <Button type="primary" htmlType="submit" loading={newTypeLoading}>Создать</Button>
+            </Space>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Модал редактирования предложения */}
+      <Modal
+        title="Редактировать предложение"
+        open={editModal}
+        onCancel={() => { setEditModal(false); setEditingOffer(null); editForm.resetFields(); }}
+        footer={null}
+        width={520}
+        destroyOnHidden
+      >
+        <Form form={editForm} layout="vertical" onFinish={handleEdit} style={{ marginTop: 16 }}>
+          <Form.Item label="Заголовок" name="title" rules={[{ required: true, message: "Введите заголовок" }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item label="Описание" name="description">
+            <Input.TextArea rows={3} />
+          </Form.Item>
+          <Form.Item label="Количество мест" name="slotsTotal" rules={[{ required: true, message: "Укажите количество" }]}
+            extra={editingOffer ? `Сейчас занято: ${editingOffer.slotsTaken}` : undefined}>
+            <InputNumber min={editingOffer?.slotsTaken ?? 1} style={{ width: "100%" }} />
+          </Form.Item>
+          <Form.Item label="Опубликовано" name="isPublished" valuePropName="checked">
+            <Switch checkedChildren="Да" unCheckedChildren="Нет" />
+          </Form.Item>
+          <div style={{ textAlign: "right" }}>
+            <Space>
+              <Button onClick={() => { setEditModal(false); setEditingOffer(null); editForm.resetFields(); }}>Отмена</Button>
+              <Button type="primary" htmlType="submit" loading={editLoading}>Сохранить</Button>
             </Space>
           </div>
         </Form>
