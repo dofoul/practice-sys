@@ -8,6 +8,7 @@ import {
 import {
   PlusOutlined, EyeOutlined, SearchOutlined,
   CheckCircleOutlined, CloseCircleOutlined, EditOutlined, TrophyOutlined,
+  DownloadOutlined, TeamOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -45,6 +46,7 @@ export default function PracticesPage() {
   const [periodFilter, setPeriodFilter] = useState<number | undefined>();
 
   // Bulk actions
+  const [exportLoading, setExportLoading] = useState<"practices" | "students" | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [bulkModal, setBulkModal] = useState<"approve" | "reject" | "needs_revision" | "grade" | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -100,6 +102,28 @@ export default function PracticesPage() {
       message.error(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setBulkLoading(false);
+    }
+  }
+
+  async function handleExport(type: "practices" | "students") {
+    setExportLoading(type);
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter) params.set("status", statusFilter);
+      if (periodFilter) params.set("periodId", String(periodFilter));
+      const res = await fetch(`/api/export/${type}?${params}`);
+      if (!res.ok) throw new Error("Ошибка экспорта");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ?? `${type}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      message.error("Не удалось выгрузить файл");
+    } finally {
+      setExportLoading(null);
     }
   }
 
@@ -167,11 +191,35 @@ export default function PracticesPage() {
             {total > 0 ? `Найдено: ${total}` : "Нет записей"}
           </Text>
         </div>
-        {role === "student" && (
-          <Link href="/catalog">
-            <Button type="primary" icon={<PlusOutlined />}>Выбрать место практики</Button>
-          </Link>
-        )}
+        <Space wrap>
+          {canBulk && (
+            <>
+              <Tooltip title="Выгрузить список практик в Excel">
+                <Button
+                  icon={<DownloadOutlined />}
+                  loading={exportLoading === "practices"}
+                  onClick={() => handleExport("practices")}
+                >
+                  Практики .xlsx
+                </Button>
+              </Tooltip>
+              <Tooltip title="Выгрузить студентов с местами практики в Excel">
+                <Button
+                  icon={<TeamOutlined />}
+                  loading={exportLoading === "students"}
+                  onClick={() => handleExport("students")}
+                >
+                  Студенты .xlsx
+                </Button>
+              </Tooltip>
+            </>
+          )}
+          {role === "student" && (
+            <Link href="/catalog">
+              <Button type="primary" icon={<PlusOutlined />}>Выбрать место практики</Button>
+            </Link>
+          )}
+        </Space>
       </div>
 
       {error && <Alert type="error" message={error} showIcon closable onClose={() => setError(null)} />}
