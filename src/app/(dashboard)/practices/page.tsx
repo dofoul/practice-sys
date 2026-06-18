@@ -2,25 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  Card,
-  Table,
-  Typography,
-  Space,
-  Button,
-  Input,
-  Select,
-  Tag,
-  Tooltip,
-  Empty,
-  Alert,
-  Modal,
-  Form,
-  App,
+  Card, Table, Typography, Space, Button, Input, Select, Tag,
+  Tooltip, Empty, Alert, Modal, Form, App,
 } from "antd";
 import {
-  PlusOutlined,
-  EyeOutlined,
-  SearchOutlined,
+  PlusOutlined, EyeOutlined, SearchOutlined,
+  CheckCircleOutlined, CloseCircleOutlined, EditOutlined, TrophyOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -42,7 +29,6 @@ interface Practice {
 }
 
 interface Period { id: number; name: string }
-interface PracticeType { id: number; name: string }
 
 export default function PracticesPage() {
   const { message } = App.useApp();
@@ -56,8 +42,13 @@ export default function PracticesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [periods, setPeriods] = useState<Period[]>([]);
-  const [practiceTypes, setPracticeTypes] = useState<PracticeType[]>([]);
   const [periodFilter, setPeriodFilter] = useState<number | undefined>();
+
+  // Bulk actions
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkModal, setBulkModal] = useState<"approve" | "reject" | "needs_revision" | "grade" | null>(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkForm] = Form.useForm();
 
   const role = session?.user?.role;
 
@@ -83,69 +74,69 @@ export default function PracticesPage() {
     }
   }, [page, pageSize, search, statusFilter, periodFilter]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
     fetch("/api/admin/periods").then((r) => r.json()).then((d) => setPeriods(d.items || []));
-    fetch("/api/admin/dictionaries/practice-types").then((r) => r.json()).then((d) => setPracticeTypes(d || []));
   }, []);
 
+  async function handleBulkAction(values: { comment?: string; grade?: string }) {
+    if (!bulkModal) return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/practices/bulk-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds, action: bulkModal, ...values }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Ошибка");
+      message.success(`Обновлено практик: ${data.updated}`);
+      setSelectedIds([]);
+      setBulkModal(null);
+      bulkForm.resetFields();
+      load();
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  const canBulk = role === "curator" || role === "admin";
+
   const columns = [
-    ...(role !== "student"
-      ? [
-          {
-            title: "Студент",
-            key: "student",
-            render: (r: Practice) => (
-              <div>
-                <Text strong style={{ fontSize: 13 }}>{r.student?.user?.fullName ?? "—"}</Text>
-                <br />
-                <Text type="secondary" style={{ fontSize: 12 }}>{r.student?.group?.name}</Text>
-              </div>
-            ),
-          },
-        ]
-      : []),
+    ...(role !== "student" ? [{
+      title: "Студент",
+      key: "student",
+      render: (r: Practice) => (
+        <div>
+          <Text strong style={{ fontSize: 13 }}>{r.student?.user?.fullName ?? "—"}</Text>
+          <br />
+          <Text type="secondary" style={{ fontSize: 12 }}>{r.student?.group?.name}</Text>
+        </div>
+      ),
+    }] : []),
+    { title: "Тип практики", dataIndex: ["practiceType", "name"], key: "type" },
+    { title: "Период", dataIndex: ["period", "name"], key: "period", ellipsis: true },
     {
-      title: "Тип практики",
-      dataIndex: ["practiceType", "name"],
-      key: "type",
-    },
-    {
-      title: "Период",
-      dataIndex: ["period", "name"],
-      key: "period",
-      ellipsis: true,
-    },
-    {
-      title: "Место",
-      key: "place",
+      title: "Место", key: "place", ellipsis: true,
       render: (r: Practice) => r.offer?.company?.name ?? r.customPlace ?? "—",
-      ellipsis: true,
     },
     {
-      title: "Статус",
-      key: "status",
+      title: "Статус", key: "status",
       render: (r: Practice) => <PracticeStatusTag status={r.status} />,
     },
     {
-      title: "Оценка",
-      key: "grade",
-      render: (r: Practice) =>
-        r.grade ? <Tag color="green">{r.grade}</Tag> : <Text type="secondary">—</Text>,
+      title: "Оценка", key: "grade",
+      render: (r: Practice) => r.grade ? <Tag color="green">{r.grade}</Tag> : <Text type="secondary">—</Text>,
     },
     {
-      title: "Обновлено",
-      key: "updated",
+      title: "Обновлено", key: "updated",
       render: (r: Practice) => dayjs(r.updatedAt).format("DD.MM.YYYY"),
     },
     {
-      title: "",
-      key: "action",
-      fixed: "right" as const,
-      width: 80,
+      title: "", key: "action", fixed: "right" as const, width: 80,
       render: (r: Practice) => (
         <Tooltip title="Открыть">
           <Link href={`/practices/${r.id}`}>
@@ -155,6 +146,15 @@ export default function PracticesPage() {
       ),
     },
   ];
+
+  const BULK_CONFIG = {
+    approve:        { title: "Принять практики",             icon: <CheckCircleOutlined />, color: "#16A34A", needsComment: true,  needsGrade: false },
+    reject:         { title: "Отклонить практики",           icon: <CloseCircleOutlined />, color: "#DC2626", needsComment: true,  needsGrade: false },
+    needs_revision: { title: "Отправить на доработку",       icon: <EditOutlined />,        color: "#D97706", needsComment: true,  needsGrade: false },
+    grade:          { title: "Выставить оценку",             icon: <TrophyOutlined />,      color: "#D97706", needsComment: false, needsGrade: true  },
+  };
+
+  const cfg = bulkModal ? BULK_CONFIG[bulkModal] : null;
 
   return (
     <Space direction="vertical" size={24} style={{ width: "100%", display: "flex" }}>
@@ -169,14 +169,57 @@ export default function PracticesPage() {
         </div>
         {role === "student" && (
           <Link href="/catalog">
-            <Button type="primary" icon={<PlusOutlined />}>
-              Выбрать место практики
-            </Button>
+            <Button type="primary" icon={<PlusOutlined />}>Выбрать место практики</Button>
           </Link>
         )}
       </div>
 
       {error && <Alert type="error" message={error} showIcon closable onClose={() => setError(null)} />}
+
+      {/* Панель массовых действий */}
+      {canBulk && selectedIds.length > 0 && (
+        <Card
+          style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 8 }}
+          styles={{ body: { padding: "12px 16px" } }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+            <Text strong style={{ color: "#1D4ED8" }}>
+              Выбрано: {selectedIds.length} {selectedIds.length === 1 ? "практика" : selectedIds.length < 5 ? "практики" : "практик"}
+            </Text>
+            <Space size={8} wrap>
+              <Button
+                icon={<CheckCircleOutlined />}
+                style={{ color: "#16A34A", borderColor: "#16A34A" }}
+                onClick={() => setBulkModal("approve")}
+              >
+                Принять
+              </Button>
+              <Button
+                icon={<EditOutlined />}
+                style={{ color: "#D97706", borderColor: "#D97706" }}
+                onClick={() => setBulkModal("needs_revision")}
+              >
+                На доработку
+              </Button>
+              <Button
+                icon={<CloseCircleOutlined />}
+                danger
+                onClick={() => setBulkModal("reject")}
+              >
+                Отклонить
+              </Button>
+              <Button
+                icon={<TrophyOutlined />}
+                style={{ color: "#7C3AED", borderColor: "#7C3AED" }}
+                onClick={() => setBulkModal("grade")}
+              >
+                Выставить оценку
+              </Button>
+              <Button type="text" onClick={() => setSelectedIds([])}>Снять выделение</Button>
+            </Space>
+          </div>
+        </Card>
+      )}
 
       <Card style={{ padding: 0 }}>
         <Space style={{ marginBottom: 16, flexWrap: "wrap" }} size={8}>
@@ -218,6 +261,11 @@ export default function PracticesPage() {
           columns={columns}
           rowKey="id"
           loading={loading}
+          rowSelection={canBulk ? {
+            selectedRowKeys: selectedIds,
+            onChange: (keys) => setSelectedIds(keys as number[]),
+            preserveSelectedRowKeys: true,
+          } : undefined}
           pagination={{
             current: page,
             pageSize,
@@ -230,6 +278,57 @@ export default function PracticesPage() {
           scroll={{ x: 800 }}
         />
       </Card>
+
+      {/* Модал массового действия */}
+      <Modal
+        title={cfg ? <Space>{cfg.icon}<span>{cfg.title}</span></Space> : ""}
+        open={!!bulkModal}
+        onCancel={() => { setBulkModal(null); bulkForm.resetFields(); }}
+        footer={null}
+        destroyOnHidden
+      >
+        {cfg && (
+          <Form form={bulkForm} layout="vertical" onFinish={handleBulkAction} style={{ marginTop: 16 }}>
+            <Alert
+              type="info"
+              message={`Действие будет применено к ${selectedIds.length} практикам. Статус изменится только у практик в подходящем статусе.`}
+              style={{ marginBottom: 16 }}
+            />
+            {cfg.needsGrade && (
+              <Form.Item label="Оценка" name="grade" rules={[{ required: true, message: "Введите оценку" }]}>
+                <Select
+                  placeholder="Выберите оценку"
+                  options={[
+                    { label: "Отлично (5)", value: "5" },
+                    { label: "Хорошо (4)", value: "4" },
+                    { label: "Удовлетворительно (3)", value: "3" },
+                    { label: "Зачтено", value: "Зачтено" },
+                    { label: "Не зачтено", value: "Не зачтено" },
+                  ]}
+                />
+              </Form.Item>
+            )}
+            {cfg.needsComment && (
+              <Form.Item label="Комментарий (необязательно)" name="comment">
+                <Input.TextArea rows={3} placeholder="Общий комментарий для всех выбранных практик..." />
+              </Form.Item>
+            )}
+            <div style={{ textAlign: "right" }}>
+              <Space>
+                <Button onClick={() => { setBulkModal(null); bulkForm.resetFields(); }}>Отмена</Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={bulkLoading}
+                  style={bulkModal === "reject" ? { background: "#DC2626" } : bulkModal === "approve" ? { background: "#16A34A" } : {}}
+                >
+                  Применить
+                </Button>
+              </Space>
+            </div>
+          </Form>
+        )}
+      </Modal>
     </Space>
   );
 }
