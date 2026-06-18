@@ -1,5 +1,6 @@
 "use client";
 
+import "@ant-design/v5-patch-for-react-19";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 import { App, ConfigProvider } from "antd";
 import ruRU from "antd/locale/ru_RU";
@@ -44,7 +45,7 @@ const designTokens = {
 export function AntdProvider({ children }: { children: React.ReactNode }) {
   return (
     <AntdRegistry>
-      <ConfigProvider theme={designTokens} locale={ruRU}>
+      <ConfigProvider theme={designTokens} locale={ruRU} warning={{ strict: false }}>
         <App>{children}</App>
       </ConfigProvider>
     </AntdRegistry>
