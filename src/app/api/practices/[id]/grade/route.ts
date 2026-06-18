@@ -26,7 +26,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const curator = await prisma.curator.findUnique({ where: { userId: Number(session.user.id) } });
 
-    const [updated] = await prisma.$transaction([
+    const ops: Parameters<typeof prisma.$transaction>[0] = [
       prisma.practice.update({
         where: { id: Number(id) },
         data: { status: "completed", grade: parsed.data.grade },
@@ -40,7 +40,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           comment: parsed.data.comment ?? `Выставлена оценка: ${parsed.data.grade}`,
         },
       }),
-    ]);
+    ];
+
+    if (practice.offerId) {
+      ops.push(
+        prisma.practiceOffer.update({
+          where: { id: practice.offerId },
+          data: { slotsTaken: { decrement: 1 } },
+        })
+      );
+    }
+
+    const [updated] = await prisma.$transaction(ops);
 
     const studentWithUser = await prisma.student.findUnique({
       where: { id: practice.studentId },
