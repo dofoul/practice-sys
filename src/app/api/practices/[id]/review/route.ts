@@ -51,8 +51,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
       });
 
-      // Free the reserved slot when a practice with an offer is rejected
-      if (parsed.data.status === "rejected" && practice.offerId) {
+      // Free the reserved slot when practice is rejected or sent for revision
+      if ((parsed.data.status === "rejected" || parsed.data.status === "needs_revision") && practice.offerId) {
         await tx.practiceOffer.update({
           where: { id: practice.offerId },
           data: { slotsTaken: { decrement: 1 } },

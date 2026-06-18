@@ -93,8 +93,8 @@ export async function POST(req: NextRequest) {
       })),
     });
 
-    // Free slots for rejected or completed (graded) practices with offers
-    if (action === "reject" || action === "grade") {
+    // Free slots for rejected, needs_revision, or completed (graded) practices with offers
+    if (action === "reject" || action === "needs_revision" || action === "grade") {
       const withOffers = practices.filter((p) => p.offerId);
       for (const p of withOffers) {
         await tx.practiceOffer.update({
