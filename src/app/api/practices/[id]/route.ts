@@ -54,6 +54,36 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   return ok(practice);
 }
 
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { session, error } = await requireAuth();
+  if (error) return error;
+
+  if (session.user.role !== "student") return err("Только студент может отменить свою практику", 403);
+
+  const { id } = await params;
+  const practice = await prisma.practice.findUnique({ where: { id: Number(id) } });
+  if (!practice) return err("Практика не найдена", 404);
+
+  const student = await prisma.student.findUnique({ where: { userId: Number(session.user.id) } });
+  if (!student || practice.studentId !== student.id) return err("Нет доступа", 403);
+
+  if (practice.status !== "draft") {
+    return err("Отменить можно только черновик. Обратитесь к куратору для отклонения.", 400);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (practice.offerId) {
+      await tx.practiceOffer.update({
+        where: { id: practice.offerId },
+        data: { slotsTaken: { decrement: 1 } },
+      });
+    }
+    await tx.practice.delete({ where: { id: Number(id) } });
+  });
+
+  return ok({ success: true });
+}
+
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { session, error } = await requireAuth();
   if (error) return error;

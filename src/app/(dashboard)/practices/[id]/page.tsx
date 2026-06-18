@@ -160,6 +160,20 @@ export default function PracticeDetailPage() {
     }
   }
 
+  async function handleCancel() {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/practices/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      message.success("Заявка отменена, место освобождено");
+      router.replace("/practices");
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function handleReview(values: { status: string; comment?: string }) {
     setActionLoading(true);
     try {
@@ -327,6 +341,18 @@ export default function PracticeDetailPage() {
             </div>
           </div>
           <Space size={8}>
+            {practice.status === "draft" && role === "student" && (
+              <Popconfirm
+                title="Отменить заявку?"
+                description="Место практики будет освобождено. Это действие нельзя отменить."
+                onConfirm={handleCancel}
+                okText="Да, отменить"
+                cancelText="Нет"
+                okButtonProps={{ danger: true }}
+              >
+                <Button danger loading={actionLoading}>Отменить заявку</Button>
+              </Popconfirm>
+            )}
             {canSubmit && (
               <Button type="primary" icon={<SendOutlined />} loading={actionLoading} onClick={handleSubmit}>
                 Отправить на проверку
