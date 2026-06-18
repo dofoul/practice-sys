@@ -71,15 +71,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return err("Отменить можно только черновик. Обратитесь к куратору для отклонения.", 400);
   }
 
-  await prisma.$transaction(async (tx) => {
-    if (practice.offerId) {
-      await tx.practiceOffer.update({
-        where: { id: practice.offerId },
-        data: { slotsTaken: { decrement: 1 } },
-      });
-    }
-    await tx.practice.delete({ where: { id: Number(id) } });
-  });
+  // Draft never held a slot (slot is claimed on submit), so just delete
+  await prisma.practice.delete({ where: { id: Number(id) } });
 
   return ok({ success: true });
 }

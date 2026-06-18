@@ -20,11 +20,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     return err("Можно отправить только черновик или практику на доработке", 400);
   }
 
-  // If resubmitting after needs_revision, re-acquire the offer slot
-  if (practice.status === "needs_revision" && practice.offerId) {
+  // Claim the slot on first submit (draft → submitted) or resubmit (needs_revision → submitted)
+  if (practice.offerId) {
     const offer = await prisma.practiceOffer.findUnique({ where: { id: practice.offerId } });
-    if (offer && offer.slotsTaken >= offer.slotsTotal) {
-      return err("Свободных мест в этом предложении больше нет. Выберите другое место.", 409);
+    if (!offer) return err("Предложение о практике не найдено", 404);
+    if (offer.slotsTaken >= offer.slotsTotal) {
+      return err("Свободных мест в этом предложении больше нет. Выберите другое место в каталоге.", 409);
     }
     await prisma.practiceOffer.update({
       where: { id: practice.offerId },

@@ -94,11 +94,7 @@ export async function POST(req: NextRequest) {
       if (offer.slotsTaken >= offer.slotsTotal) return err("Свободных мест нет", 409);
 
       const practice = await prisma.$transaction(async (tx) => {
-        await tx.practiceOffer.update({
-          where: { id: offerId, slotsTaken: { lt: offer.slotsTotal } },
-          data: { slotsTaken: { increment: 1 } },
-        });
-
+        // Slot is NOT reserved at draft stage — it is claimed on submit
         const p = await tx.practice.create({
           data: {
             studentId: student.id,
