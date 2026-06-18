@@ -44,6 +44,8 @@ export default function PracticesPage() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [periods, setPeriods] = useState<Period[]>([]);
   const [periodFilter, setPeriodFilter] = useState<number | undefined>();
+  const [groups, setGroups] = useState<{ id: number; name: string }[]>([]);
+  const [groupFilter, setGroupFilter] = useState<number | undefined>();
 
   // Bulk actions
   const [exportLoading, setExportLoading] = useState<"practices" | "students" | null>(null);
@@ -63,6 +65,7 @@ export default function PracticesPage() {
         ...(search ? { search } : {}),
         ...(statusFilter ? { status: statusFilter } : {}),
         ...(periodFilter ? { periodId: String(periodFilter) } : {}),
+        ...(groupFilter ? { groupId: String(groupFilter) } : {}),
       });
       const res = await fetch(`/api/practices?${params}`);
       if (!res.ok) throw new Error("Ошибка загрузки");
@@ -74,13 +77,37 @@ export default function PracticesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, statusFilter, periodFilter]);
+  }, [page, pageSize, search, statusFilter, periodFilter, groupFilter]);
 
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
     fetch("/api/admin/periods").then((r) => r.json()).then((d) => setPeriods(d.items || []));
+    fetch("/api/admin/groups").then((r) => r.json()).then((d) => setGroups(d.items || d || []));
   }, []);
+
+  async function handleExport(type: "practices" | "students") {
+    setExportLoading(type);
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter) params.set("status", statusFilter);
+      if (periodFilter) params.set("periodId", String(periodFilter));
+      if (groupFilter) params.set("groupId", String(groupFilter));
+      const res = await fetch(`/api/export/${type}?${params}`);
+      if (!res.ok) throw new Error("Ошибка экспорта");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ?? `${type}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      message.error("Не удалось выгрузить файл");
+    } finally {
+      setExportLoading(null);
+    }
+  }
 
   async function handleBulkAction(values: { comment?: string; grade?: string }) {
     if (!bulkModal) return;
@@ -102,28 +129,6 @@ export default function PracticesPage() {
       message.error(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setBulkLoading(false);
-    }
-  }
-
-  async function handleExport(type: "practices" | "students") {
-    setExportLoading(type);
-    try {
-      const params = new URLSearchParams();
-      if (statusFilter) params.set("status", statusFilter);
-      if (periodFilter) params.set("periodId", String(periodFilter));
-      const res = await fetch(`/api/export/${type}?${params}`);
-      if (!res.ok) throw new Error("Ошибка экспорта");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ?? `${type}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      message.error("Не удалось выгрузить файл");
-    } finally {
-      setExportLoading(null);
     }
   }
 
@@ -302,6 +307,16 @@ export default function PracticesPage() {
             style={{ width: 220 }}
             options={periods.map((p) => ({ label: p.name, value: p.id }))}
           />
+          {canBulk && (
+            <Select
+              placeholder="Группа"
+              value={groupFilter}
+              onChange={(v) => { setGroupFilter(v); setPage(1); }}
+              allowClear
+              style={{ width: 160 }}
+              options={groups.map((g) => ({ label: g.name, value: g.id }))}
+            />
+          )}
         </Space>
 
         <Table

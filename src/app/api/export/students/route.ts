@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = req.nextUrl;
   const periodId = searchParams.get("periodId");
+  const groupId = searchParams.get("groupId");
 
   let groupIds: number[] | undefined;
 
@@ -33,8 +34,13 @@ export async function GET(req: NextRequest) {
     groupIds = curator?.groupCurators.map((gc) => gc.groupId) ?? [];
   }
 
+  // groupId filter: intersect with curator's allowed groups
+  const effectiveGroupIds = groupId
+    ? (groupIds ? [Number(groupId)].filter((id) => groupIds!.includes(id)) : [Number(groupId)])
+    : groupIds;
+
   const students = await prisma.student.findMany({
-    where: groupIds ? { groupId: { in: groupIds } } : {},
+    where: effectiveGroupIds ? { groupId: { in: effectiveGroupIds } } : {},
     include: {
       user: { select: { fullName: true, email: true } },
       group: { select: { name: true } },

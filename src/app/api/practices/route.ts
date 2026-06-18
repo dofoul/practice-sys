@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search") ?? "";
   const status = searchParams.get("status");
   const periodId = searchParams.get("periodId");
+  const groupId = searchParams.get("groupId");
 
   const userId = Number(session.user.id);
   const role = session.user.role;
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest) {
     ...whereClause,
     ...(status ? { status } : {}),
     ...(periodId ? { periodId: Number(periodId) } : {}),
+    ...(groupId ? { student: { groupId: Number(groupId) } } : {}),
     ...(search ? {
       OR: [
         { student: { user: { fullName: { contains: search, mode: "insensitive" as const } } } },

@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const periodId = searchParams.get("periodId");
   const status = searchParams.get("status");
+  const groupId = searchParams.get("groupId");
 
   let whereClause: object = {};
 
@@ -40,6 +41,7 @@ export async function GET(req: NextRequest) {
       ...whereClause,
       ...(status ? { status } : {}),
       ...(periodId ? { periodId: Number(periodId) } : {}),
+      ...(groupId ? { student: { groupId: Number(groupId) } } : {}),
     },
     include: {
       student: { include: { user: { select: { fullName: true, email: true } }, group: { select: { name: true } } } },
