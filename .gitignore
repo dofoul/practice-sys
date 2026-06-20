@@ -27,3 +27,7 @@ Thumbs.db
 
 # prisma
 prisma/migrations/
+prisma/dump.sql
+
+# typescript build info
+tsconfig.tsbuildinfo
