@@ -31,3 +31,6 @@ prisma/dump.sql
 
 # typescript build info
 tsconfig.tsbuildinfo
+
+# local backups
+backup/

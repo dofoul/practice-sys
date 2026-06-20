@@ -155,6 +155,45 @@ else
     warn "  docker exec -i praktik_db psql -U praktik -d praktik_db < prisma/dump.sql"
 fi
 
+# ── 10. Восстановление файлов MinIO ────────────────────────
+MINIO_ARCHIVE="$PROJECT_DIR/minio.tar.gz"
+
+step "Восстановление файлов MinIO"
+if [ -f "$MINIO_ARCHIVE" ]; then
+    NETWORK=$(docker inspect praktik_db \
+        --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' 2>/dev/null | head -1)
+
+    MINIO_TMP=$(mktemp -d)
+    tar -xzf "$MINIO_ARCHIVE" -C "$MINIO_TMP"
+
+    if [ -n "$NETWORK" ]; then
+        docker run --rm \
+            --network "$NETWORK" \
+            -v "$MINIO_TMP/minio-files:/src" \
+            -e MC_HOST_local="http://minioadmin:minioadmin@minio:9000" \
+            minio/mc mirror /src local/praktik 2>/dev/null && \
+            ok "Файлы загружены в MinIO" || \
+            warn "Не удалось загрузить через сеть"
+    fi
+    rm -rf "$MINIO_TMP"
+else
+    warn "Файл minio.tar.gz не найден — файлы MinIO не восстановлены."
+    warn "Скопируй minio.tar.gz в $PROJECT_DIR/ для восстановления."
+fi
+
+# ── 11. Восстановление миграций Prisma ─────────────────────
+MIGRATIONS_ARCHIVE="$PROJECT_DIR/migrations.tar.gz"
+
+step "Восстановление миграций Prisma"
+if [ -f "$MIGRATIONS_ARCHIVE" ]; then
+    tar -xzf "$MIGRATIONS_ARCHIVE" -C "$PROJECT_DIR/prisma/"
+    COUNT=$(find "$PROJECT_DIR/prisma/migrations" -name "migration.sql" | wc -l)
+    ok "$COUNT миграций восстановлено в prisma/migrations/"
+else
+    warn "Файл migrations.tar.gz не найден — пропускаем."
+    warn "Приложение работает без них если БД восстановлена из dump.sql."
+fi
+
 # ── Готово ─────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}══════════════════════════════════════════${NC}"
