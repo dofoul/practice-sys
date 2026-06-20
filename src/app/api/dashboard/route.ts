@@ -9,6 +9,11 @@ export async function GET() {
   const role = session.user.role;
 
   try {
+    // Company role has its own dashboard
+    if (role === "company") {
+      return ok({ stats: { total: 0, submitted: 0, approved: 0, needsRevision: 0 }, recent: [], isCompany: true });
+    }
+
     let whereClause = {};
 
     if (role === "student") {

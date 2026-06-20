@@ -14,6 +14,8 @@ import {
   SettingOutlined,
   SolutionOutlined,
   BellOutlined,
+  ApartmentOutlined,
+  IdcardOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -143,11 +145,26 @@ function getMenuItems(role: string) {
     },
   ];
 
+  const companyItems = [
+    {
+      key: "/company/offers",
+      icon: <ApartmentOutlined />,
+      label: <Link href="/company/offers">Мои вакансии</Link>,
+    },
+    {
+      key: "/company/profile",
+      icon: <IdcardOutlined />,
+      label: <Link href="/company/profile">Профиль компании</Link>,
+    },
+  ];
+
   switch (role) {
     case "admin":
       return [...common, ...adminItems];
     case "curator":
       return [...common, ...curatorItems];
+    case "company":
+      return [...common, ...companyItems];
     case "student":
     default:
       return [...common, ...studentItems];
@@ -181,9 +198,13 @@ export function Sidebar({ role, userName }: SidebarProps) {
                     ? "/practices"
                     : pathname.startsWith("/catalog")
                       ? "/catalog"
-                      : pathname.startsWith("/companies")
-                        ? "/companies"
-                        : pathname.startsWith("/groups")
+                      : pathname.startsWith("/company/offers")
+                        ? "/company/offers"
+                        : pathname.startsWith("/company/profile")
+                          ? "/company/profile"
+                          : pathname.startsWith("/companies")
+                            ? "/companies"
+                            : pathname.startsWith("/groups")
                           ? "/groups"
                           : pathname;
 

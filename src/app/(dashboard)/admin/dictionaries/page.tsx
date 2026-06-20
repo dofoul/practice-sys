@@ -13,7 +13,7 @@ interface PracticeType { id: number; code: string; name: string }
 interface DocumentType { id: number; code: string; name: string; isRequired: boolean }
 interface Company {
   id: number; name: string; inn?: string; address?: string;
-  contactPerson?: string; contactPhone?: string;
+  contactPerson?: string; contactPhone?: string; isVerified: boolean;
 }
 
 function CrudTable<T extends { id: number }>({
@@ -148,6 +148,7 @@ export default function AdminDictionariesPage() {
     { title: "ИНН", dataIndex: "inn", key: "inn", render: (v?: string) => v ?? "—" },
     { title: "Контактное лицо", dataIndex: "contactPerson", key: "cp", render: (v?: string) => v ?? "—" },
     { title: "Телефон", dataIndex: "contactPhone", key: "phone", render: (v?: string) => v ?? "—" },
+    { title: "Верификация", dataIndex: "isVerified", key: "verified", render: (v: boolean) => <Tag color={v ? "green" : "orange"}>{v ? "Верифицировано" : "Ожидает"}</Tag> },
   ];
 
   const modalTitle: Record<string, string> = {
@@ -256,6 +257,9 @@ export default function AdminDictionariesPage() {
               <Form.Item label="Адрес" name="address"><Input /></Form.Item>
               <Form.Item label="Контактное лицо" name="contactPerson"><Input /></Form.Item>
               <Form.Item label="Телефон" name="contactPhone"><Input /></Form.Item>
+              <Form.Item label="Верифицировано" name="isVerified" valuePropName="checked">
+                <Switch checkedChildren="Да" unCheckedChildren="Нет" />
+              </Form.Item>
             </>
           )}
           <div style={{ textAlign: "right" }}>
