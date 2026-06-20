@@ -10,6 +10,8 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search") ?? "";
   const periodId = searchParams.get("periodId");
   const typeId = searchParams.get("typeId");
+  const direction = searchParams.get("direction");
+  const sort = searchParams.get("sort"); // "rating" | "date"
 
   const where = {
     isPublished: true,
@@ -21,23 +23,47 @@ export async function GET(req: NextRequest) {
     } : {}),
     ...(periodId ? { periodId: Number(periodId) } : {}),
     ...(typeId ? { practiceTypeId: Number(typeId) } : {}),
+    ...(direction ? { direction } : {}),
   };
 
-  const [items, total] = await Promise.all([
+  const include = {
+    company: { select: { name: true, address: true } },
+    practiceType: { select: { name: true } },
+    period: { select: { name: true, dateStart: true, dateEnd: true } },
+    templates: { include: { documentType: { select: { name: true } } } },
+    offerReviews: { select: { rating: true } },
+  };
+
+  if (sort === "rating") {
+    // Fetch all matching offers, compute avg, sort, then paginate in memory
+    const all = await prisma.practiceOffer.findMany({ where, include });
+    const withRating = all.map((o) => ({
+      ...o,
+      avgRating: o.offerReviews.length ? o.offerReviews.reduce((s, r) => s + r.rating, 0) / o.offerReviews.length : 0,
+      reviewCount: o.offerReviews.length,
+    }));
+    withRating.sort((a, b) => b.avgRating - a.avgRating);
+    const total = withRating.length;
+    const items = withRating.slice((page - 1) * pageSize, page * pageSize);
+    return ok({ items, total, page, pageSize });
+  }
+
+  const [raw, total] = await Promise.all([
     prisma.practiceOffer.findMany({
       where,
       skip: (page - 1) * pageSize,
       take: pageSize,
       orderBy: { createdAt: "desc" },
-      include: {
-        company: { select: { name: true, address: true } },
-        practiceType: { select: { name: true } },
-        period: { select: { name: true, dateStart: true, dateEnd: true } },
-        templates: { include: { documentType: { select: { name: true } } } },
-      },
+      include,
     }),
     prisma.practiceOffer.count({ where }),
   ]);
+
+  const items = raw.map((o) => ({
+    ...o,
+    avgRating: o.offerReviews.length ? o.offerReviews.reduce((s, r) => s + r.rating, 0) / o.offerReviews.length : 0,
+    reviewCount: o.offerReviews.length,
+  }));
 
   return ok({ items, total, page, pageSize });
 }

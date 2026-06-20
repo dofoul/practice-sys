@@ -12,6 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       practiceType: true,
       period: true,
       templates: { include: { documentType: true } },
+      offerReviews: { select: { rating: true, comment: true, createdAt: true } },
     },
   });
   if (!offer) return err("Предложение не найдено", 404);
@@ -35,6 +36,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const body = await req.json();
     const parsed = updateOfferSchema.safeParse(body);
     if (!parsed.success) return err(parsed.error.errors[0].message, 400);
+
+    // #4 — нельзя уменьшить количество мест ниже уже занятых
+    if (parsed.data.slotsTotal !== undefined && parsed.data.slotsTotal < offer.slotsTaken) {
+      return err(`Нельзя уменьшить количество мест ниже уже занятых (${offer.slotsTaken})`, 400);
+    }
 
     const updated = await prisma.practiceOffer.update({
       where: { id: Number(id) },

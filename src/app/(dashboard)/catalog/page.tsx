@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Card,
   Row,
@@ -20,6 +20,7 @@ import {
   Form,
   Divider,
   Switch,
+  Rate,
   App,
 } from "antd";
 import {
@@ -29,6 +30,9 @@ import {
   TeamOutlined,
   BookOutlined,
   EditOutlined,
+  StarFilled,
+  TagOutlined,
+  SortAscendingOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -40,9 +44,12 @@ interface Offer {
   id: number;
   title: string;
   description?: string;
+  direction?: string;
   slotsTotal: number;
   slotsTaken: number;
   isPublished: boolean;
+  avgRating: number;
+  reviewCount: number;
   company: { name: string; address?: string };
   practiceType: { name: string };
   period: { name: string; dateStart: string; dateEnd: string };
@@ -63,6 +70,9 @@ export default function CatalogPage() {
   const [search, setSearch] = useState("");
   const [periodFilter, setPeriodFilter] = useState<number | undefined>();
   const [typeFilter, setTypeFilter] = useState<number | undefined>();
+  const [directionFilter, setDirectionFilter] = useState<string | undefined>();
+  const [sortBy, setSortBy] = useState<"date" | "rating">("date");
+  const [directions, setDirections] = useState<string[]>([]);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [practiceTypes, setPracticeTypes] = useState<PracticeType[]>([]);
   const [createModal, setCreateModal] = useState(false);
@@ -89,6 +99,41 @@ export default function CatalogPage() {
   const role = session?.user?.role;
   const pageSize = 12;
 
+  const renderCompanyDropdown = useCallback((menu: React.ReactNode) => (
+    <>
+      {menu}
+      <div style={{ padding: "8px", borderTop: "1px solid #E2E8F0" }}>
+        <Button type="dashed" block icon={<PlusOutlined />} onClick={() => setNewCompanyModal(true)}>
+          Создать новое предприятие
+        </Button>
+      </div>
+    </>
+  ), []);
+
+  const renderTypeDropdown = useCallback((menu: React.ReactNode) => (
+    <>
+      {menu}
+      <Divider style={{ margin: "4px 0" }} />
+      <div style={{ padding: "4px 8px 8px" }}>
+        <Button type="link" icon={<PlusOutlined />} style={{ padding: 0 }} onClick={() => setNewTypeModal(true)}>
+          Создать новый тип практики
+        </Button>
+      </div>
+    </>
+  ), []);
+
+  const renderPeriodDropdown = useCallback((menu: React.ReactNode) => (
+    <>
+      {menu}
+      <Divider style={{ margin: "4px 0" }} />
+      <div style={{ padding: "4px 8px 8px" }}>
+        <Button type="link" icon={<PlusOutlined />} style={{ padding: 0 }} onClick={() => setNewPeriodModal(true)}>
+          Создать новый период
+        </Button>
+      </div>
+    </>
+  ), []);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -98,6 +143,8 @@ export default function CatalogPage() {
         ...(search ? { search } : {}),
         ...(periodFilter ? { periodId: String(periodFilter) } : {}),
         ...(typeFilter ? { typeId: String(typeFilter) } : {}),
+        ...(directionFilter ? { direction: directionFilter } : {}),
+        ...(sortBy === "rating" ? { sort: "rating" } : {}),
       });
       const res = await fetch(`/api/offers?${params}`);
       if (!res.ok) throw new Error();
@@ -109,9 +156,14 @@ export default function CatalogPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, periodFilter, typeFilter]);
+  }, [page, pageSize, search, periodFilter, typeFilter, directionFilter, sortBy]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Reload directions when catalog reloads (new directions may have been added)
+  useEffect(() => {
+    fetch("/api/offers/directions").then((r) => r.json()).then((d) => setDirections(Array.isArray(d) ? d : []));
+  }, [offers]);
 
   useEffect(() => {
     fetch("/api/admin/periods").then((r) => r.json()).then((d) => setPeriods(d.items || []));
@@ -223,13 +275,14 @@ export default function CatalogPage() {
     editForm.setFieldsValue({
       title: offer.title,
       description: offer.description,
+      direction: offer.direction,
       slotsTotal: offer.slotsTotal,
       isPublished: offer.isPublished,
     });
     setEditModal(true);
   }
 
-  async function handleEdit(values: { title: string; description?: string; slotsTotal: number; isPublished: boolean }) {
+  async function handleEdit(values: { title: string; description?: string; direction?: string; slotsTotal: number; isPublished: boolean }) {
     if (!editingOffer) return;
     setEditLoading(true);
     try {
@@ -319,11 +372,23 @@ export default function CatalogPage() {
             options={periods.map((p) => ({ label: p.name, value: p.id }))}
           />
           <Select
-            placeholder="Наличие мест"
-            onChange={(v) => setPage(1)}
+            placeholder="Направление"
+            value={directionFilter}
+            onChange={(v) => { setDirectionFilter(v); setPage(1); }}
             allowClear
-            style={{ width: 160 }}
-            options={[{ label: "Есть места", value: "available" }]}
+            style={{ width: 180 }}
+            suffixIcon={<TagOutlined />}
+            options={directions.map((d) => ({ label: d, value: d }))}
+          />
+          <Select
+            value={sortBy}
+            onChange={(v) => { setSortBy(v); setPage(1); }}
+            style={{ width: 170 }}
+            suffixIcon={<SortAscendingOutlined />}
+            options={[
+              { label: "По дате добавления", value: "date" },
+              { label: "По рейтингу", value: "rating" },
+            ]}
           />
         </Space>
       </Card>
@@ -365,8 +430,14 @@ export default function CatalogPage() {
                     ) : <span key="na" />,
                   ]}
                 >
+                  <div style={{ marginBottom: 8, display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                    <Tag color="blue">{offer.practiceType.name}</Tag>
+                    {offer.direction && <Tag color="purple" icon={<TagOutlined />}>{offer.direction}</Tag>}
+                    {offer.avgRating >= 4 && offer.reviewCount >= 1 && (
+                      <Tag color="gold" icon={<StarFilled />}>Рекомендовано</Tag>
+                    )}
+                  </div>
                   <div style={{ marginBottom: 8 }}>
-                    <Tag color="blue" style={{ marginBottom: 4 }}>{offer.practiceType.name}</Tag>
                     <Badge
                       status={hasSlots ? "success" : "error"}
                       text={
@@ -400,11 +471,17 @@ export default function CatalogPage() {
                   {offer.description && (
                     <Paragraph
                       ellipsis={{ rows: 2 }}
-                      style={{ fontSize: 13, color: "#64748B", marginTop: 8, marginBottom: 0 }}
+                      style={{ fontSize: 13, color: "#64748B", marginTop: 8, marginBottom: 4 }}
                     >
                       {offer.description}
                     </Paragraph>
                   )}
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                    <Rate disabled allowHalf value={offer.avgRating} style={{ fontSize: 13 }} />
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {offer.reviewCount > 0 ? `${offer.avgRating.toFixed(1)} (${offer.reviewCount})` : "Нет отзывов"}
+                    </Text>
+                  </div>
                 </Card>
               </Col>
             );
@@ -434,59 +511,28 @@ export default function CatalogPage() {
               showSearch
               optionFilterProp="label"
               placeholder="Выберите или создайте новое"
-              popupRender={(menu) => (
-                <>
-                  {menu}
-                  <div style={{ padding: "8px", borderTop: "1px solid #E2E8F0" }}>
-                    <Button
-                      type="dashed"
-                      block
-                      icon={<PlusOutlined />}
-                      onClick={() => setNewCompanyModal(true)}
-                    >
-                      Создать новое предприятие
-                    </Button>
-                  </div>
-                </>
-              )}
+              popupRender={renderCompanyDropdown}
             />
           </Form.Item>
           <Form.Item label="Тип практики" name="practiceTypeId" rules={[{ required: true, message: "Выберите тип" }]}>
             <Select
               options={practiceTypes.map((t) => ({ label: t.name, value: t.id }))}
               placeholder="Выберите или создайте новый"
-              popupRender={(menu) => (
-                <>
-                  {menu}
-                  <Divider style={{ margin: "4px 0" }} />
-                  <div style={{ padding: "4px 8px 8px" }}>
-                    <Button type="link" icon={<PlusOutlined />} style={{ padding: 0 }} onClick={() => setNewTypeModal(true)}>
-                      Создать новый тип практики
-                    </Button>
-                  </div>
-                </>
-              )}
+              popupRender={renderTypeDropdown}
             />
           </Form.Item>
           <Form.Item label="Период" name="periodId" rules={[{ required: true, message: "Выберите период" }]}>
             <Select
               options={periods.map((p) => ({ label: p.name, value: p.id }))}
               placeholder="Выберите или создайте новый"
-              popupRender={(menu) => (
-                <>
-                  {menu}
-                  <Divider style={{ margin: "4px 0" }} />
-                  <div style={{ padding: "4px 8px 8px" }}>
-                    <Button type="link" icon={<PlusOutlined />} style={{ padding: 0 }} onClick={() => setNewPeriodModal(true)}>
-                      Создать новый период
-                    </Button>
-                  </div>
-                </>
-              )}
+              popupRender={renderPeriodDropdown}
             />
           </Form.Item>
           <Form.Item label="Заголовок" name="title" rules={[{ required: true, message: "Введите заголовок" }]}>
             <Input placeholder="Разработчик веб-приложений" />
+          </Form.Item>
+          <Form.Item label="Направление" name="direction" extra="Например: IT, Экономика, Юриспруденция">
+            <Input placeholder="IT" />
           </Form.Item>
           <Form.Item label="Описание" name="description">
             <Input.TextArea rows={3} placeholder="Описание стажировки, требования..." />
@@ -574,6 +620,9 @@ export default function CatalogPage() {
         <Form form={editForm} layout="vertical" onFinish={handleEdit} style={{ marginTop: 16 }}>
           <Form.Item label="Заголовок" name="title" rules={[{ required: true, message: "Введите заголовок" }]}>
             <Input />
+          </Form.Item>
+          <Form.Item label="Направление" name="direction" extra="Например: IT, Экономика, Юриспруденция">
+            <Input placeholder="IT" />
           </Form.Item>
           <Form.Item label="Описание" name="description">
             <Input.TextArea rows={3} />
