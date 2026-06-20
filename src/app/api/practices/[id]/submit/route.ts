@@ -10,7 +10,10 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (session.user.role !== "student") return err("Только студент может отправить на проверку", 403);
 
   const { id } = await params;
-  const practice = await prisma.practice.findUnique({ where: { id: Number(id) } });
+  const practice = await prisma.practice.findUnique({
+    where: { id: Number(id) },
+    include: { period: true },
+  });
   if (!practice) return err("Практика не найдена", 404);
 
   const student = await prisma.student.findUnique({ where: { userId: Number(session.user.id) } });
@@ -18,6 +21,11 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   if (practice.status !== "draft" && practice.status !== "needs_revision") {
     return err("Можно отправить только черновик или практику на доработке", 400);
+  }
+
+  // #5 — период закрыт: запрещаем первичную подачу (draft→submitted), но разрешаем повторную после доработки
+  if (practice.status === "draft" && !practice.period.isOpen) {
+    return err("Период практики закрыт. Подача заявок больше не принимается.", 400);
   }
 
   // Claim the slot on first submit (draft → submitted) or resubmit (needs_revision → submitted)

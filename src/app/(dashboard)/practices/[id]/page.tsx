@@ -26,6 +26,7 @@ import {
   DatePicker,
   Empty,
   Divider,
+  Rate,
 } from "antd";
 import {
   ArrowLeftOutlined,
@@ -41,6 +42,7 @@ import {
   PlusOutlined,
   MessageOutlined,
   UserOutlined,
+  StarOutlined,
 } from "@ant-design/icons";
 import { Avatar } from "antd";
 import Link from "next/link";
@@ -83,6 +85,13 @@ interface Review {
   curator: { user: { fullName: string } };
 }
 
+interface OfferReview {
+  id: number;
+  rating: number;
+  comment?: string;
+  createdAt: string;
+}
+
 interface Practice {
   id: number;
   status: string;
@@ -90,16 +99,18 @@ interface Practice {
   customPlace?: string;
   dateStart?: string;
   dateEnd?: string;
+  offerId?: number;
   submittedAt?: string;
   createdAt: string;
   updatedAt: string;
   student: { user: { fullName: string; email: string }; group: { name: string }; recordBookNo?: string };
   practiceType: { name: string };
   period: { name: string; dateStart: string; dateEnd: string };
-  offer?: { title: string; company: { name: string; address?: string; contactPerson?: string } };
+  offer?: { id: number; title: string; company: { name: string; address?: string; contactPerson?: string } };
   documents: Document[];
   reviews: Review[];
   diaryEntries: DiaryEntry[];
+  offerReview?: OfferReview;
 }
 
 export default function PracticeDetailPage() {
@@ -122,6 +133,10 @@ export default function PracticeDetailPage() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
+  const [noSlotsError, setNoSlotsError] = useState(false);
+  const [offerReviewModal, setOfferReviewModal] = useState(false);
+  const [offerReviewForm] = Form.useForm();
+  const [offerReviewLoading, setOfferReviewLoading] = useState(false);
 
   const role = session?.user?.role;
   const id = params.id as string;
@@ -148,9 +163,17 @@ export default function PracticeDetailPage() {
   async function handleSubmit() {
     if (!confirm("Отправить практику на проверку?")) return;
     setActionLoading(true);
+    setNoSlotsError(false);
     try {
       const res = await fetch(`/api/practices/${id}/submit`, { method: "POST" });
-      if (!res.ok) throw new Error((await res.json()).error);
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 409) {
+          setNoSlotsError(true);
+          return;
+        }
+        throw new Error(data.error);
+      }
       message.success("Практика отправлена на проверку");
       load();
     } catch (e: unknown) {
@@ -306,6 +329,28 @@ export default function PracticeDetailPage() {
     }
   }
 
+  async function handleSubmitOfferReview(values: { rating: number; comment?: string }) {
+    if (!practice?.offerId) return;
+    setOfferReviewLoading(true);
+    try {
+      const res = await fetch(`/api/offers/${practice.offerId}/reviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ practiceId: practice.id, ...values }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      message.success("Отзыв успешно отправлен!");
+      setOfferReviewModal(false);
+      offerReviewForm.resetFields();
+      load();
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setOfferReviewLoading(false);
+    }
+  }
+
   if (loading) return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><Spin size="large" /></div>;
   if (error || !practice) return <Alert type="error" message={error ?? "Данные не найдены"} />;
 
@@ -340,6 +385,22 @@ export default function PracticeDetailPage() {
               </Space>
             </div>
           </div>
+          {noSlotsError && (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 12 }}
+              message="Свободных мест больше нет"
+              description={
+                <span>
+                  Все места в выбранном предложении заняты.{" "}
+                  <Link href="/catalog">Перейдите в каталог</Link>, чтобы выбрать другое место практики, или отмените эту заявку.
+                </span>
+              }
+              closable
+              onClose={() => setNoSlotsError(false)}
+            />
+          )}
           <Space size={8}>
             {practice.status === "draft" && role === "student" && (
               <Popconfirm
@@ -371,6 +432,38 @@ export default function PracticeDetailPage() {
           </Space>
         </div>
       </div>
+
+      {/* Блок отзыва о месте практики — только для студента после завершения */}
+      {role === "student" && practice.status === "completed" && practice.offerId && (
+        <Card
+          size="small"
+          style={{ background: practice.offerReview ? "#F0FDF4" : "#FFFBEB", border: `1px solid ${practice.offerReview ? "#BBF7D0" : "#FCD34D"}` }}
+        >
+          <Space align="center" style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap" }}>
+            <Space>
+              <StarOutlined style={{ color: "#F59E0B", fontSize: 18 }} />
+              {practice.offerReview ? (
+                <Space direction="vertical" size={0}>
+                  <Text strong>Ваш отзыв отправлен</Text>
+                  <Space size={6}>
+                    <Rate disabled value={practice.offerReview.rating} style={{ fontSize: 13 }} />
+                    {practice.offerReview.comment && (
+                      <Text type="secondary" style={{ fontSize: 13 }}>«{practice.offerReview.comment}»</Text>
+                    )}
+                  </Space>
+                </Space>
+              ) : (
+                <Text>Практика завершена. Оцените место практики — это поможет другим студентам.</Text>
+              )}
+            </Space>
+            {!practice.offerReview && (
+              <Button type="primary" icon={<StarOutlined />} onClick={() => setOfferReviewModal(true)}>
+                Оставить отзыв
+              </Button>
+            )}
+          </Space>
+        </Card>
+      )}
 
       <Row gutter={[24, 24]}>
         <Col xs={24} lg={14}>
@@ -885,6 +978,40 @@ export default function PracticeDetailPage() {
             <Space>
               <Button onClick={() => { setGradeModal(false); gradeForm.resetFields(); }}>Отмена</Button>
               <Button type="primary" htmlType="submit" loading={actionLoading}>Завершить практику</Button>
+            </Space>
+          </div>
+        </Form>
+      </Modal>
+      {/* Модал отзыва о месте практики */}
+      <Modal
+        title={<Space><StarOutlined style={{ color: "#F59E0B" }} /><span>Отзыв о месте практики</span></Space>}
+        open={offerReviewModal}
+        onCancel={() => { setOfferReviewModal(false); offerReviewForm.resetFields(); }}
+        footer={null}
+        destroyOnHidden
+      >
+        <Form form={offerReviewForm} layout="vertical" onFinish={handleSubmitOfferReview} style={{ marginTop: 16 }}>
+          <Form.Item
+            label="Оценка"
+            name="rating"
+            rules={[{ required: true, message: "Поставьте оценку" }]}
+          >
+            <Rate />
+          </Form.Item>
+          <Form.Item label="Комментарий (необязательно)" name="comment">
+            <Input.TextArea
+              rows={4}
+              maxLength={2000}
+              showCount
+              placeholder="Поделитесь впечатлениями: условия работы, задачи, коллектив..."
+            />
+          </Form.Item>
+          <div style={{ textAlign: "right" }}>
+            <Space>
+              <Button onClick={() => { setOfferReviewModal(false); offerReviewForm.resetFields(); }}>Отмена</Button>
+              <Button type="primary" htmlType="submit" loading={offerReviewLoading} icon={<StarOutlined />}>
+                Отправить отзыв
+              </Button>
             </Space>
           </div>
         </Form>

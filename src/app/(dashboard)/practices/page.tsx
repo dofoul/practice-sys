@@ -8,7 +8,7 @@ import {
 import {
   PlusOutlined, EyeOutlined, SearchOutlined,
   CheckCircleOutlined, CloseCircleOutlined, EditOutlined, TrophyOutlined,
-  DownloadOutlined, TeamOutlined,
+  DownloadOutlined, TeamOutlined, DeleteOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -53,6 +53,8 @@ export default function PracticesPage() {
   const [bulkModal, setBulkModal] = useState<"approve" | "reject" | "needs_revision" | "grade" | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkForm] = Form.useForm();
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const role = session?.user?.role;
 
@@ -132,7 +134,37 @@ export default function PracticesPage() {
     }
   }
 
+  async function handleBulkDelete() {
+    setDeleteLoading(true);
+    try {
+      const res = await fetch("/api/practices/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Ошибка");
+      message.success(`Удалено практик: ${data.deleted}`);
+      setSelectedIds([]);
+      setDeleteModal(false);
+      load();
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
   const canBulk = role === "curator" || role === "admin";
+
+  // Student can select only completed/rejected practices for history cleanup
+  const studentSelectedDeletable =
+    role === "student" &&
+    selectedIds.length > 0 &&
+    selectedIds.every((id) => {
+      const p = practices.find((pr) => pr.id === id);
+      return p?.status === "completed" || p?.status === "rejected";
+    });
 
   const columns = [
     ...(role !== "student" ? [{
@@ -268,6 +300,43 @@ export default function PracticesPage() {
               >
                 Выставить оценку
               </Button>
+              {role === "admin" && (
+                <Button
+                  icon={<DeleteOutlined />}
+                  danger
+                  onClick={() => setDeleteModal(true)}
+                >
+                  Удалить
+                </Button>
+              )}
+              <Button type="text" onClick={() => setSelectedIds([])}>Снять выделение</Button>
+            </Space>
+          </div>
+        </Card>
+      )}
+
+      {/* Панель очистки истории для студента */}
+      {role === "student" && selectedIds.length > 0 && (
+        <Card
+          style={{ background: studentSelectedDeletable ? "#FEF3C7" : "#F9FAFB", border: `1px solid ${studentSelectedDeletable ? "#FCD34D" : "#E5E7EB"}`, borderRadius: 8 }}
+          styles={{ body: { padding: "12px 16px" } }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+            <Text strong style={{ color: studentSelectedDeletable ? "#92400E" : "#6B7280" }}>
+              Выбрано: {selectedIds.length}{" "}
+              {selectedIds.length === 1 ? "практика" : selectedIds.length < 5 ? "практики" : "практик"}
+              {!studentSelectedDeletable && (
+                <Text type="secondary" style={{ fontWeight: 400, marginLeft: 8, fontSize: 13 }}>
+                  — выберите только завершённые или отклонённые
+                </Text>
+              )}
+            </Text>
+            <Space size={8}>
+              {studentSelectedDeletable && (
+                <Button icon={<DeleteOutlined />} danger onClick={() => setDeleteModal(true)}>
+                  Удалить из истории
+                </Button>
+              )}
               <Button type="text" onClick={() => setSelectedIds([])}>Снять выделение</Button>
             </Space>
           </div>
@@ -275,6 +344,7 @@ export default function PracticesPage() {
       )}
 
       <Card style={{ padding: 0 }}>
+
         <Space style={{ marginBottom: 16, flexWrap: "wrap" }} size={8}>
           <Input
             placeholder="Поиск по студенту, месту..."
@@ -324,10 +394,18 @@ export default function PracticesPage() {
           columns={columns}
           rowKey="id"
           loading={loading}
-          rowSelection={canBulk ? {
+          rowSelection={canBulk || role === "student" ? {
             selectedRowKeys: selectedIds,
             onChange: (keys) => setSelectedIds(keys as number[]),
             preserveSelectedRowKeys: true,
+            getCheckboxProps: role === "student"
+              ? (record: Practice) => ({
+                  disabled: record.status !== "completed" && record.status !== "rejected",
+                  title: record.status !== "completed" && record.status !== "rejected"
+                    ? "Только завершённые и отклонённые практики можно удалить"
+                    : undefined,
+                })
+              : undefined,
           } : undefined}
           pagination={{
             current: page,
@@ -341,6 +419,34 @@ export default function PracticesPage() {
           scroll={{ x: 800 }}
         />
       </Card>
+
+      {/* Модал подтверждения удаления */}
+      <Modal
+        title={<Space><DeleteOutlined style={{ color: "#DC2626" }} /><span>Удалить практики</span></Space>}
+        open={deleteModal}
+        onCancel={() => setDeleteModal(false)}
+        footer={null}
+        destroyOnHidden
+      >
+        <Alert
+          type="warning"
+          showIcon
+          message={`Вы собираетесь удалить ${selectedIds.length} ${selectedIds.length === 1 ? "практику" : selectedIds.length < 5 ? "практики" : "практик"}.`}
+          description={role === "student"
+            ? "Это действие необратимо. Все документы и дневниковые записи будут удалены."
+            : "Это действие необратимо. Все документы, дневники и история проверок будут удалены. Занятые места в предложениях будут освобождены."
+          }
+          style={{ marginBottom: 16, marginTop: 16 }}
+        />
+        <div style={{ textAlign: "right" }}>
+          <Space>
+            <Button onClick={() => setDeleteModal(false)}>Отмена</Button>
+            <Button danger type="primary" loading={deleteLoading} onClick={handleBulkDelete}>
+              Удалить безвозвратно
+            </Button>
+          </Space>
+        </div>
+      </Modal>
 
       {/* Модал массового действия */}
       <Modal

@@ -88,6 +88,13 @@ export async function POST(req: NextRequest) {
     if (!period) return err("Период практики не найден", 404);
     if (!period.isOpen) return err("Период практики закрыт для записи", 400);
 
+    // #2 — один студент не может иметь две активные практики на один период
+    // completed и rejected не блокируют новую запись
+    const existing = await prisma.practice.findFirst({
+      where: { studentId: student.id, periodId, status: { notIn: ["rejected", "completed"] } },
+    });
+    if (existing) return err("У вас уже есть практика на этот период. Сначала отмените или дождитесь отклонения предыдущей.", 409);
+
     if (offerId) {
       const offer = await prisma.practiceOffer.findUnique({ where: { id: offerId } });
       if (!offer || !offer.isPublished) return err("Предложение не найдено или не опубликовано", 404);

@@ -118,9 +118,10 @@ model Student {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  user      User       @relation(fields: [userId], references: [id])
-  group     Group      @relation(fields: [groupId], references: [id])
-  practices Practice[]
+  user         User          @relation(fields: [userId], references: [id])
+  group        Group         @relation(fields: [groupId], references: [id])
+  practices    Practice[]
+  offerReviews OfferReview[]
 
   @@map("students")
 }
@@ -196,15 +197,18 @@ model DocumentType {
 }
 
 model Company {
-  id            Int      @id @default(autoincrement())
-  name          String   @db.VarChar(255)
-  inn           String?  @db.VarChar(16)
-  address       String?  @db.VarChar(255)
-  contactPerson String?  @map("contact_person") @db.VarChar(255)
-  contactPhone  String?  @map("contact_phone") @db.VarChar(32)
-  ownerUserId   Int?     @unique @map("owner_user_id")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id            Int       @id @default(autoincrement())
+  name          String    @db.VarChar(255)
+  inn           String?   @db.VarChar(16)
+  address       String?   @db.VarChar(255)
+  contactPerson String?   @map("contact_person") @db.VarChar(255)
+  contactPhone  String?   @map("contact_phone") @db.VarChar(32)
+  description   String?   @db.Text
+  website       String?   @db.VarChar(255)
+  isVerified    Boolean   @default(false) @map("is_verified")
+  ownerUserId   Int?      @unique @map("owner_user_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
   ownerUser      User?           @relation("CompanyOwner", fields: [ownerUserId], references: [id])
   practiceOffers PracticeOffer[]
@@ -220,6 +224,7 @@ model PracticeOffer {
   periodId       Int      @map("period_id")
   title          String   @db.VarChar(255)
   description    String?
+  direction      String?  @db.VarChar(128)
   slotsTotal     Int      @map("slots_total")
   slotsTaken     Int      @default(0) @map("slots_taken")
   createdBy      Int      @map("created_by")
@@ -233,6 +238,7 @@ model PracticeOffer {
   creator      User           @relation("OfferCreator", fields: [createdBy], references: [id])
   templates    OfferTemplate[]
   practices    Practice[]
+  offerReviews OfferReview[]
 
   @@map("practice_offers")
 }
@@ -276,8 +282,27 @@ model Practice {
   reviews      PracticeReview[]
   diaryEntries DiaryEntry[]
   comments     PracticeComment[]
+  offerReview  OfferReview?
 
   @@map("practices")
+}
+
+model OfferReview {
+  id         Int      @id @default(autoincrement())
+  offerId    Int      @map("offer_id")
+  practiceId Int      @unique @map("practice_id")
+  studentId  Int      @map("student_id")
+  rating     Int
+  comment    String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  offer    PracticeOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  practice Practice      @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  student  Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([offerId, studentId])
+  @@map("offer_reviews")
 }
 
 model DiaryEntry {
@@ -308,7 +333,7 @@ model Document {
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
 
-  practice     Practice     @relation(fields: [practiceId], references: [id])
+  practice     Practice     @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   documentType DocumentType @relation(fields: [documentTypeId], references: [id])
   uploader     User         @relation("DocumentUploader", fields: [uploadedBy], references: [id])
 
@@ -324,7 +349,7 @@ model PracticeReview {
   comment    String?
   createdAt  DateTime @default(now()) @map("created_at")
 
-  practice Practice @relation(fields: [practiceId], references: [id])
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   curator  Curator  @relation(fields: [curatorId], references: [id])
 
   @@map("practice_reviews")

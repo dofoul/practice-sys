@@ -31,6 +31,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         orderBy: { entryDate: "asc" },
         select: { id: true, entryDate: true, content: true, updatedAt: true },
       },
+      offerReview: {
+        select: { id: true, rating: true, comment: true, createdAt: true },
+      },
     },
   });
 

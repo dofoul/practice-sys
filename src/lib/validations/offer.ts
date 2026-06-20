@@ -6,6 +6,7 @@ export const createOfferSchema = z.object({
   periodId: z.number().int().positive("Выберите период"),
   title: z.string().min(3, "Заголовок обязателен").max(255),
   description: z.string().optional(),
+  direction: z.string().max(128).optional(),
   slotsTotal: z.number().int().min(1, "Укажите количество мест"),
   isPublished: z.boolean().default(true),
 });
