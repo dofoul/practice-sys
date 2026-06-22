@@ -25,10 +25,6 @@ Thumbs.db
 *.swp
 *.swo
 
-# prisma
-prisma/migrations/
-prisma/dump.sql
-
 # typescript build info
 tsconfig.tsbuildinfo
 
