@@ -45,4 +45,4 @@ export async function deleteObject(key: string): Promise<void> {
   await getS3Client().send(command);
 }
 
-export { getS3Client as s3 };
+export { getS3Client };
