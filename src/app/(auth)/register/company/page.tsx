@@ -53,7 +53,7 @@ export default function RegisterCompanyPage() {
       const res = await fetch("/api/auth/register/company", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...step1Data, companyName: values.companyName, ...values }),
+        body: JSON.stringify({ ...step1Data, ...values }),
       });
       const data = await res.json();
       if (!res.ok) {
