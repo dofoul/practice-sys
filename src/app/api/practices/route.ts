@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, ok, err } from "@/lib/api";
 import { createPracticeSchema } from "@/lib/validations/practice";
+import { PracticeStatus } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   const { session, error } = await requireAuth();
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
 
   const filters = {
     ...whereClause,
-    ...(status ? { status } : {}),
+    ...(status ? { status: status as PracticeStatus } : {}),
     ...(periodId ? { periodId: Number(periodId) } : {}),
     ...(groupId ? { student: { groupId: Number(groupId) } } : {}),
     ...(search ? {

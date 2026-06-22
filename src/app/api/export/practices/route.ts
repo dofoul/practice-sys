@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireRole, err } from "@/lib/api";
+import { PracticeStatus } from "@prisma/client";
 import * as XLSX from "xlsx";
 import dayjs from "dayjs";
 
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
   const practices = await prisma.practice.findMany({
     where: {
       ...whereClause,
-      ...(status ? { status } : {}),
+      ...(status ? { status: status as PracticeStatus } : {}),
       ...(periodId ? { periodId: Number(periodId) } : {}),
       ...(groupId ? { student: { groupId: Number(groupId) } } : {}),
     },
