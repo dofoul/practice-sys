@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireRole, ok, err } from "@/lib/api";
+import { PracticeStatus } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   const { session, error } = await requireAuth();
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
   const practices = await prisma.practice.findMany({
     where: {
       offer: { companyId: company.id },
-      ...(status ? { status } : {}),
+      ...(status ? { status: status as PracticeStatus } : {}),
       ...(search
         ? {
             student: {
