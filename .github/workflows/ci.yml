@@ -11,6 +11,11 @@ jobs:
     name: Type check & Lint
     runs-on: ubuntu-latest
 
+    env:
+      DATABASE_URL: "postgresql://fake:fake@localhost:5432/fake"
+      AUTH_SECRET: "fake-secret-for-ci-do-not-use-in-prod"
+      NEXTAUTH_URL: "http://localhost:3000"
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
