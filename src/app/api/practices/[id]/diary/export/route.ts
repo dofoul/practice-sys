@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, ok, err } from "@/lib/api";
-import { s3, BUCKET } from "@/lib/minio";
+import { getS3Client, BUCKET } from "@/lib/minio";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { buildDiaryExportPath } from "@/lib/storage-path";
 import dayjs from "dayjs";
@@ -63,7 +63,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     periodName: practice.period.name,
   });
 
-  await s3.send(
+  await getS3Client().send(
     new PutObjectCommand({
       Bucket: BUCKET,
       Key: fileKey,
