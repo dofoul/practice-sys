@@ -101,11 +101,14 @@ function LoginForm() {
         <Text type="secondary" style={{ fontSize: 13 }}>
           Нет аккаунта?{" "}
           <Link href="/register" style={{ color: "#2563EB", fontWeight: 500 }}>
-            Студент
+            Регистрация
           </Link>
-          {" / "}
-          <Link href="/register/company" style={{ color: "#2563EB", fontWeight: 500 }}>
-            Предприятие
+        </Text>
+        <br />
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          Вы предприятие?{" "}
+          <Link href="/company/login" style={{ color: "#3b82f6", fontWeight: 500 }}>
+            Войти в кабинет предприятия →
           </Link>
         </Text>
       </div>

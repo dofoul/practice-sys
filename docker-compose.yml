@@ -68,7 +68,7 @@ services:
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-praktik}:${POSTGRES_PASSWORD:-praktik}@db:5432/${POSTGRES_DB:-praktik_db}"
       NODE_ENV: development
-      AUTH_SECRET: ${AUTH_SECRET:-dev-secret-change-in-production}
+      AUTH_SECRET: ${AUTH_SECRET:-dev-secret-change-in-production!!}
       AUTH_URL: ${AUTH_URL:-http://localhost:3000}
       MINIO_ENDPOINT: "http://minio:9000"
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
@@ -88,8 +88,7 @@ services:
         condition: service_healthy
     command: >
       sh -c "
-        npx prisma migrate deploy &&
-        npx prisma generate &&
+        ./node_modules/.bin/prisma migrate deploy &&
         npm run dev
       "
 

@@ -4,11 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Card, Table, Typography, Button, Tag, Space, Modal, Form, Input,
   Select, InputNumber, Switch, Drawer, App, Popconfirm, Upload,
-  Tooltip, Empty, Alert, Spin,
+  Tooltip, Empty, Alert, Spin, Divider,
 } from "antd";
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, TeamOutlined,
-  UploadOutlined, FileOutlined, StarOutlined,
+  UploadOutlined, FileOutlined, StarOutlined, CopyOutlined,
+  CheckCircleOutlined, CloseCircleOutlined, TrophyOutlined,
 } from "@ant-design/icons";
 import type { UploadFile } from "antd";
 import dayjs from "dayjs";
@@ -34,6 +35,7 @@ interface Offer {
 interface Applicant {
   id: number;
   status: string;
+  grade?: string | null;
   student: { user: { fullName: string; email: string; phone?: string }; group: { name: string } };
   period: { name: string };
   createdAt: string;
@@ -44,6 +46,7 @@ interface Period { id: number; name: string }
 interface DocType { id: number; name: string }
 
 const DIRECTIONS = ["IT", "Экономика", "Юриспруденция", "Менеджмент", "Маркетинг", "Медицина", "Педагогика", "Другое"];
+const GRADES = ["Отлично", "Хорошо", "Удовлетворительно", "Неудовлетворительно", "5", "4", "3", "2", "Зачтено", "Не зачтено"];
 
 export default function CompanyOffersPage() {
   const { message } = App.useApp();
@@ -63,6 +66,17 @@ export default function CompanyOffersPage() {
   });
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [applicantsLoading, setApplicantsLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+
+  const [gradeModal, setGradeModal] = useState<{ open: boolean; practiceId: number | null; offerId: number | null }>({
+    open: false, practiceId: null, offerId: null,
+  });
+  const [gradeValue, setGradeValue] = useState<string>("");
+
+  const [rejectModal, setRejectModal] = useState<{ open: boolean; practiceId: number | null; offerId: number | null }>({
+    open: false, practiceId: null, offerId: null,
+  });
+  const [rejectComment, setRejectComment] = useState("");
 
   const [templatesDrawer, setTemplatesDrawer] = useState<{ open: boolean; offer: Offer | null }>({
     open: false, offer: null,
@@ -70,6 +84,7 @@ export default function CompanyOffersPage() {
   const [templateDocType, setTemplateDocType] = useState<number | null>(null);
   const [templateFile, setTemplateFile] = useState<UploadFile | null>(null);
   const [templateUploading, setTemplateUploading] = useState(false);
+  const [cloningId, setCloningId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -137,6 +152,19 @@ export default function CompanyOffersPage() {
     load();
   }
 
+  async function cloneOffer(id: number) {
+    setCloningId(id);
+    try {
+      const res = await fetch(`/api/company/offers/${id}/clone`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) { message.error(data.error); return; }
+      message.success("Вакансия продублирована как черновик");
+      load();
+    } finally {
+      setCloningId(null);
+    }
+  }
+
   async function openApplicants(offer: Offer) {
     setApplicantsDrawer({ open: true, offerId: offer.id, title: offer.title });
     setApplicantsLoading(true);
@@ -145,6 +173,75 @@ export default function CompanyOffersPage() {
       if (res.ok) setApplicants(await res.json());
     } finally {
       setApplicantsLoading(false);
+    }
+  }
+
+  async function refreshApplicants(offerId: number) {
+    const res = await fetch(`/api/company/offers/${offerId}/applicants`);
+    if (res.ok) setApplicants(await res.json());
+  }
+
+  async function handleApplicantAction(offerId: number, practiceId: number, body: Record<string, unknown>) {
+    setActionLoading(practiceId);
+    try {
+      const res = await fetch(`/api/company/offers/${offerId}/applicants/${practiceId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) { message.error(data.error); return false; }
+      return true;
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function approveApplicant(offerId: number, practiceId: number) {
+    const success = await handleApplicantAction(offerId, practiceId, { action: "approve" });
+    if (success) {
+      message.success("Заявка принята, студент уведомлён");
+      refreshApplicants(offerId);
+      load();
+    }
+  }
+
+  function openReject(offerId: number, practiceId: number) {
+    setRejectComment("");
+    setRejectModal({ open: true, practiceId, offerId });
+  }
+
+  async function confirmReject() {
+    if (!rejectModal.practiceId || !rejectModal.offerId) return;
+    const success = await handleApplicantAction(rejectModal.offerId, rejectModal.practiceId, {
+      action: "reject",
+      comment: rejectComment.trim() || undefined,
+    });
+    if (success) {
+      message.success("Заявка отклонена, студент уведомлён");
+      const offerId = rejectModal.offerId;
+      setRejectModal({ open: false, practiceId: null, offerId: null });
+      refreshApplicants(offerId);
+      load();
+    }
+  }
+
+  function openGrade(offerId: number, practiceId: number) {
+    setGradeValue("");
+    setGradeModal({ open: true, practiceId, offerId });
+  }
+
+  async function confirmGrade() {
+    if (!gradeModal.practiceId || !gradeModal.offerId || !gradeValue) return;
+    const success = await handleApplicantAction(gradeModal.offerId, gradeModal.practiceId, {
+      action: "grade",
+      grade: gradeValue,
+    });
+    if (success) {
+      message.success("Оценка выставлена, студент уведомлён");
+      const offerId = gradeModal.offerId;
+      setGradeModal({ open: false, practiceId: null, offerId: null });
+      refreshApplicants(offerId);
     }
   }
 
@@ -172,9 +269,7 @@ export default function CompanyOffersPage() {
       });
       const presignData = await presignRes.json();
       if (!presignRes.ok) { message.error(presignData.error); return; }
-
       await fetch(presignData.uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-
       message.success("Шаблон загружен");
       setTemplateDocType(null);
       setTemplateFile(null);
@@ -236,11 +331,7 @@ export default function CompanyOffersPage() {
       title: "Места",
       key: "slots",
       width: 90,
-      render: (o: Offer) => (
-        <Text style={{ fontSize: 13 }}>
-          {o.slotsTaken}/{o.slotsTotal}
-        </Text>
-      ),
+      render: (o: Offer) => <Text style={{ fontSize: 13 }}>{o.slotsTaken}/{o.slotsTotal}</Text>,
     },
     {
       title: "Статус",
@@ -269,11 +360,7 @@ export default function CompanyOffersPage() {
       key: "applicants",
       width: 100,
       render: (o: Offer) => (
-        <Button
-          size="small"
-          icon={<TeamOutlined />}
-          onClick={() => openApplicants(o)}
-        >
+        <Button size="small" icon={<TeamOutlined />} onClick={() => openApplicants(o)}>
           {o.practicesCount}
         </Button>
       ),
@@ -281,11 +368,19 @@ export default function CompanyOffersPage() {
     {
       title: "",
       key: "actions",
-      width: 80,
+      width: 120,
       render: (o: Offer) => (
         <Space>
           <Tooltip title="Редактировать">
             <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(o)} />
+          </Tooltip>
+          <Tooltip title="Дублировать">
+            <Button
+              size="small"
+              icon={<CopyOutlined />}
+              loading={cloningId === o.id}
+              onClick={() => cloneOffer(o.id)}
+            />
           </Tooltip>
           <Popconfirm
             title="Удалить вакансию?"
@@ -324,11 +419,11 @@ export default function CompanyOffersPage() {
           loading={loading}
           pagination={false}
           locale={{ emptyText: <Empty description="Вакансий пока нет. Создайте первую!" /> }}
-          scroll={{ x: 700 }}
+          scroll={{ x: 800 }}
         />
       </Card>
 
-      {/* Offer create/edit modal */}
+      {/* Offer modal */}
       <Modal
         title={offerModal.editing ? "Редактировать вакансию" : "Новая вакансия"}
         open={offerModal.open}
@@ -377,7 +472,7 @@ export default function CompanyOffersPage() {
         title={<><TeamOutlined /> Отклики — {applicantsDrawer.title}</>}
         open={applicantsDrawer.open}
         onClose={() => setApplicantsDrawer({ open: false, offerId: null, title: "" })}
-        width={600}
+        width={620}
       >
         {applicantsLoading ? (
           <div style={{ display: "flex", justifyContent: "center", paddingTop: 40 }}><Spin /></div>
@@ -385,28 +480,124 @@ export default function CompanyOffersPage() {
           <Empty description="Студентов ещё нет" />
         ) : (
           <Space direction="vertical" size={12} style={{ width: "100%" }}>
-            {applicants.map((a) => (
-              <Card key={a.id} size="small" style={{ borderRadius: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <Text strong>{a.student.user.fullName}</Text>
-                    <Text type="secondary" style={{ display: "block", fontSize: 13 }}>
-                      {a.student.group.name} • {a.student.user.email}
-                    </Text>
-                    {a.student.user.phone && (
-                      <Text type="secondary" style={{ fontSize: 12 }}>{a.student.user.phone}</Text>
-                    )}
+            {applicants.map((a) => {
+              const offerId = applicantsDrawer.offerId!;
+              const canApprove = !["approved", "completed", "rejected"].includes(a.status);
+              const canReject  = !["rejected", "completed"].includes(a.status);
+              const canGrade   = ["approved", "completed"].includes(a.status);
+
+              return (
+                <Card key={a.id} size="small" style={{ borderRadius: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <Text strong>{a.student.user.fullName}</Text>
+                      <Text type="secondary" style={{ display: "block", fontSize: 13 }}>
+                        {a.student.group.name} · {a.student.user.email}
+                      </Text>
+                      {a.student.user.phone && (
+                        <Text type="secondary" style={{ fontSize: 12 }}>{a.student.user.phone}</Text>
+                      )}
+                    </div>
+                    <Space direction="vertical" align="end" size={4}>
+                      <PracticeStatusTag status={a.status} />
+                      {a.grade && <Tag color="gold"><TrophyOutlined /> {a.grade}</Tag>}
+                    </Space>
                   </div>
-                  <PracticeStatusTag status={a.status} />
-                </div>
-                <Text type="secondary" style={{ fontSize: 12, display: "block", marginTop: 6 }}>
-                  Записан: {dayjs(a.createdAt).format("DD.MM.YYYY")}
-                </Text>
-              </Card>
-            ))}
+
+                  <Text type="secondary" style={{ fontSize: 12, display: "block", marginTop: 6 }}>
+                    Записан: {dayjs(a.createdAt).format("DD.MM.YYYY")}
+                  </Text>
+
+                  <Divider style={{ margin: "10px 0" }} />
+
+                  <Space size={8} wrap>
+                    {canApprove && (
+                      <Button
+                        size="small"
+                        type="primary"
+                        icon={<CheckCircleOutlined />}
+                        loading={actionLoading === a.id}
+                        onClick={() => approveApplicant(offerId, a.id)}
+                      >
+                        Принять
+                      </Button>
+                    )}
+                    {canReject && (
+                      <Button
+                        size="small"
+                        danger
+                        icon={<CloseCircleOutlined />}
+                        loading={actionLoading === a.id}
+                        onClick={() => openReject(offerId, a.id)}
+                      >
+                        Отклонить
+                      </Button>
+                    )}
+                    {canGrade && (
+                      <Button
+                        size="small"
+                        icon={<TrophyOutlined />}
+                        onClick={() => openGrade(offerId, a.id)}
+                      >
+                        {a.grade ? "Изменить оценку" : "Выставить оценку"}
+                      </Button>
+                    )}
+                  </Space>
+                </Card>
+              );
+            })}
           </Space>
         )}
       </Drawer>
+
+      {/* Reject modal */}
+      <Modal
+        title={<><CloseCircleOutlined style={{ color: "#ef4444" }} /> Отклонить заявку</>}
+        open={rejectModal.open}
+        onCancel={() => setRejectModal({ open: false, practiceId: null, offerId: null })}
+        onOk={confirmReject}
+        okText="Отклонить"
+        okButtonProps={{ danger: true, loading: actionLoading !== null }}
+        cancelText="Отмена"
+      >
+        <div style={{ marginTop: 16 }}>
+          <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+            Студент получит уведомление об отклонении.
+          </Text>
+          <Input.TextArea
+            rows={3}
+            placeholder="Причина отклонения (необязательно)"
+            value={rejectComment}
+            onChange={(e) => setRejectComment(e.target.value)}
+            maxLength={500}
+            showCount
+          />
+        </div>
+      </Modal>
+
+      {/* Grade modal */}
+      <Modal
+        title={<><TrophyOutlined style={{ color: "#D97706" }} /> Выставить оценку</>}
+        open={gradeModal.open}
+        onCancel={() => setGradeModal({ open: false, practiceId: null, offerId: null })}
+        onOk={confirmGrade}
+        okText="Сохранить"
+        okButtonProps={{ loading: actionLoading !== null, disabled: !gradeValue }}
+        cancelText="Отмена"
+      >
+        <div style={{ marginTop: 16 }}>
+          <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+            Практика будет отмечена как завершённая, студент получит уведомление.
+          </Text>
+          <Select
+            placeholder="Выберите оценку"
+            style={{ width: "100%" }}
+            value={gradeValue || undefined}
+            onChange={setGradeValue}
+            options={GRADES.map((g) => ({ value: g, label: g }))}
+          />
+        </div>
+      </Modal>
 
       {/* Templates drawer */}
       <Drawer
@@ -422,7 +613,6 @@ export default function CompanyOffersPage() {
           style={{ marginBottom: 20 }}
         />
 
-        {/* Existing templates */}
         {templatesDrawer.offer?.templates && templatesDrawer.offer.templates.length > 0 && (
           <Space direction="vertical" size={8} style={{ width: "100%", marginBottom: 20 }}>
             {templatesDrawer.offer.templates.map((t) => (
@@ -450,7 +640,6 @@ export default function CompanyOffersPage() {
           </Space>
         )}
 
-        {/* Upload new template */}
         <Card size="small" title="Добавить шаблон" style={{ borderRadius: 8 }}>
           <Space direction="vertical" style={{ width: "100%" }} size={12}>
             <div>

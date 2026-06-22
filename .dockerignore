@@ -11,3 +11,6 @@ README*.md
 *.log
 TZ_sistema_ucheta_praktik.md
 .claude
+backup-extracted/
+minio-files/
+*.zip

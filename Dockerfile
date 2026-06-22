@@ -15,7 +15,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN --mount=type=cache,target=/root/.npm \
     npm config set registry https://registry.npmmirror.com/ && \
-    npm install --no-audit --no-fund --prefer-offline
+    npm install --no-audit --no-fund
   
 # ---------- Слой разработки (hot-reload) ----------
 FROM node:20-alpine AS dev
@@ -24,6 +24,7 @@ WORKDIR /app
 ENV NODE_ENV=development
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN npx --yes prisma@5.22.0 generate
 EXPOSE 3000
 CMD ["npm", "run", "dev"]
 

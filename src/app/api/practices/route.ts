@@ -128,6 +128,27 @@ export async function POST(req: NextRequest) {
           });
         }
 
+        // Уведомить владельца компании о новом отклике
+        const companyOwner = await tx.company.findUnique({
+          where: { id: offer.companyId },
+          select: { ownerUserId: true, name: true },
+        });
+        if (companyOwner?.ownerUserId) {
+          const studentUser = await tx.user.findUnique({
+            where: { id: userId },
+            select: { fullName: true },
+          });
+          await tx.notification.create({
+            data: {
+              userId: companyOwner.ownerUserId,
+              type: "new_applicant",
+              title: "Новый отклик на вакансию",
+              body: `${studentUser?.fullName ?? "Студент"} откликнулся на вакансию «${offer.title}».`,
+              link: `/company/offers`,
+            },
+          });
+        }
+
         return p;
       });
 

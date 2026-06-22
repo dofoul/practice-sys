@@ -16,6 +16,8 @@ import {
   BellOutlined,
   ApartmentOutlined,
   IdcardOutlined,
+  BarChartOutlined,
+  SettingFilled,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -152,9 +154,24 @@ function getMenuItems(role: string) {
       label: <Link href="/company/offers">Мои вакансии</Link>,
     },
     {
+      key: "/company/students",
+      icon: <TeamOutlined />,
+      label: <Link href="/company/students">Мои студенты</Link>,
+    },
+    {
+      key: "/company/analytics",
+      icon: <BarChartOutlined />,
+      label: <Link href="/company/analytics">Аналитика</Link>,
+    },
+    {
       key: "/company/profile",
       icon: <IdcardOutlined />,
       label: <Link href="/company/profile">Профиль компании</Link>,
+    },
+    {
+      key: "/company/settings",
+      icon: <SettingFilled />,
+      label: <Link href="/company/settings">Настройки</Link>,
     },
   ];
 
@@ -200,7 +217,13 @@ export function Sidebar({ role, userName }: SidebarProps) {
                       ? "/catalog"
                       : pathname.startsWith("/company/offers")
                         ? "/company/offers"
-                        : pathname.startsWith("/company/profile")
+                        : pathname.startsWith("/company/analytics")
+                          ? "/company/analytics"
+                          : pathname.startsWith("/company/students")
+                          ? "/company/students"
+                          : pathname.startsWith("/company/settings")
+                          ? "/company/settings"
+                          : pathname.startsWith("/company/profile")
                           ? "/company/profile"
                           : pathname.startsWith("/companies")
                             ? "/companies"
