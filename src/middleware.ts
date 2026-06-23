@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
-const AUTH_REDIRECT_ROUTES = ["/login", "/register"]; // если авторизован → /dashboard
+const AUTH_REDIRECT_ROUTES = ["/login", "/register", "/company/login"]; // если авторизован → /dashboard
 const OPEN_ROUTES = ["/"]; // публичные, без редиректа авторизованных
 const AUTH_ONLY_FOR_ADMIN = ["/admin"];
 

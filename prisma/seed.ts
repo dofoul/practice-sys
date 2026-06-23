@@ -215,6 +215,20 @@ async function main() {
   await mkStudent("vlasov.n@praktik.ru",     "Власов Никита Олегович",        gSA21.id,  "2024-103");
   await mkStudent("golubeva.a@praktik.ru",   "Голубева Алина Сергеевна",      gSA21.id,  "2024-104");
 
+  // ─── Пользователи компаний ────────────────────────────────────────────────
+  const companyHash = await bcrypt.hash("company123", 10);
+
+  const companyUser1 = await prisma.user.upsert({
+    where:  { email: "company@praktik.ru" },
+    update: {},
+    create: { email: "company@praktik.ru", passwordHash: companyHash, fullName: "Сидоров Сергей Сергеевич", role: "company" },
+  });
+  const companyUser2 = await prisma.user.upsert({
+    where:  { email: "it-solutions@praktik.ru" },
+    update: {},
+    create: { email: "it-solutions@praktik.ru", passwordHash: companyHash, fullName: "Козлова Марина Владимировна", role: "company" },
+  });
+
   // ─── Предприятия ──────────────────────────────────────────────────────────
   const company1 = await prisma.company.upsert({
     where:  { id: 1 },
@@ -223,6 +237,7 @@ async function main() {
       name: 'ООО "Технологии Будущего"', inn: "7712345678",
       address: "г. Москва, ул. Ленина, д. 1",
       contactPerson: "Сидоров Сергей Сергеевич", contactPhone: "+7 (495) 123-45-67",
+      ownerUserId: companyUser1.id,
     },
   });
 
@@ -233,6 +248,7 @@ async function main() {
       name: 'АО "ИТ-Решения"', inn: "7734567890",
       address: "г. Москва, Проспект Мира, д. 45",
       contactPerson: "Козлова Марина Владимировна", contactPhone: "+7 (495) 987-65-43",
+      ownerUserId: companyUser2.id,
     },
   });
 
@@ -349,6 +365,9 @@ async function main() {
   console.log("  smirnova@praktik.ru        / curator123  — Смирнова Е.А.   (ИСП-21)");
   console.log("  petrov.d@praktik.ru        / curator123  — Петров Д.С.     (ИСП-11)");
   console.log("  kozlovskaya@praktik.ru     / curator123  — Козловская Н.В. (СА-31, СА-21)");
+  console.log("");
+  console.log("  company@praktik.ru         / company123  — ООО «Технологии Будущего»");
+  console.log("  it-solutions@praktik.ru    / company123  — АО «ИТ-Решения»");
   console.log("");
   console.log("  student@praktik.ru         / student123  — Петров П.П.     (ИСП-31)");
   console.log("  alekseev.m@praktik.ru      / student123  — Алексеев М.О.   (ИСП-31)");

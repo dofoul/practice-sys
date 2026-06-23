@@ -22,13 +22,12 @@
 
 ## Демо-доступ
 
-Сайт: [dofoul.site](https://dofoul.site)
-
 | Роль | Email | Пароль |
 |------|-------|--------|
 | Администратор | admin@praktik.ru | admin123 |
 | Куратор | curator@praktik.ru | curator123 |
 | Студент | student@praktik.ru | student123 |
+| Компания | company@praktik.ru | company123 |
 
 ## Ветки
 
