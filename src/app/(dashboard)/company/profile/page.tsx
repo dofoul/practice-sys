@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, Form, Input, Button, Typography, Space, Tag, Alert, Spin, App } from "antd";
+import { Card, Form, Input, Button, Typography, Space, Tag, Alert, App } from "antd";
 import { BankOutlined, GlobalOutlined, PhoneOutlined, UserOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 const { Title, Text } = Typography;
 
@@ -61,7 +62,7 @@ export default function CompanyProfilePage() {
     }
   }
 
-  if (loading) return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><Spin size="large" /></div>;
+  if (loading) return <PageSkeleton variant="detail" />;
 
   return (
     <Space direction="vertical" size={24} style={{ width: "100%", display: "flex", maxWidth: 700 }}>

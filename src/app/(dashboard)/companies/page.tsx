@@ -3,13 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   App, Card, Row, Col, Typography, Space, Button, Input,
-  Tag, Empty, Spin, Alert, Modal, Form, Divider,
+  Tag, Empty, Alert, Modal, Form, Divider,
 } from "antd";
 import {
   BankOutlined, PhoneOutlined, EnvironmentOutlined,
   IdcardOutlined, UserOutlined, PlusOutlined, SearchOutlined, EditOutlined,
 } from "@ant-design/icons";
 import { useSession } from "next-auth/react";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 const { Title, Text } = Typography;
 
@@ -123,7 +124,7 @@ export default function CompaniesPage() {
     }
   }
 
-  if (loading) return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><Spin size="large" /></div>;
+  if (loading) return <PageSkeleton variant="cards" />;
   if (error) return <Alert type="error" message={error} showIcon />;
 
   return (

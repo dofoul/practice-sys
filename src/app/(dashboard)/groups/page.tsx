@@ -10,11 +10,12 @@ import {
   Tag,
   Button,
   Empty,
-  Spin,
+
   Alert,
   Avatar,
   Tooltip,
 } from "antd";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import {
   TeamOutlined,
   UserOutlined,
@@ -116,7 +117,7 @@ export default function GroupsPage() {
     },
   ];
 
-  if (loading) return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><Spin size="large" /></div>;
+  if (loading) return <PageSkeleton variant="table" />;
   if (error) return <Alert type="error" message={error} showIcon />;
 
   return (

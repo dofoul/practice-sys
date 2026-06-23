@@ -18,7 +18,7 @@ import {
   Select,
   Breadcrumb,
   Alert,
-  Spin,
+
   Tooltip,
   Row,
   Col,
@@ -50,6 +50,7 @@ import { useSession } from "next-auth/react";
 import { PracticeStatusTag } from "@/components/ui/PracticeStatusTag";
 import { DocumentStatusTag } from "@/components/ui/DocumentStatusTag";
 import dayjs from "dayjs";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 const { Title, Text } = Typography;
 
@@ -351,7 +352,7 @@ export default function PracticeDetailPage() {
     }
   }
 
-  if (loading) return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><Spin size="large" /></div>;
+  if (loading) return <PageSkeleton variant="detail" />;
   if (error || !practice) return <Alert type="error" message={error ?? "Данные не найдены"} />;
 
   const canSubmit = role === "student" && (practice.status === "draft" || practice.status === "needs_revision");
